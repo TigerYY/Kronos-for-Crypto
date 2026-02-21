@@ -37,10 +37,12 @@ class MultiTimeframeStrategy:
     """
 
     # 各时间周期对应的权重
+    # 设计逻辑：1d/4h 中长期趋势权重最高，15m 短期噪音最大权重最低
     TIMEFRAME_WEIGHTS = {
-        '5m':  0.2,
-        '15m': 0.3,
-        '1h':  0.5,
+        '15m': 0.15,
+        '1h':  0.25,
+        '4h':  0.30,
+        '1d':  0.30,
     }
 
     def __init__(
@@ -82,7 +84,8 @@ class MultiTimeframeStrategy:
                 reasons.append(f"{tf}=N/A")
                 continue
 
-            weight = self.TIMEFRAME_WEIGHTS.get(tf, 0.0)
+            # 若时框不在预设权重表，给默认权重 0.5（支持回测中自定义时框）
+            weight = self.TIMEFRAME_WEIGHTS.get(tf, 0.5)
             change_pct = (pred_price - current_price) / current_price
 
             weighted_change += change_pct * weight
@@ -114,17 +117,18 @@ class MultiTimeframeStrategy:
         """
         将加权涨跌幅转化为具体动作和信心度
 
-        信心度计算：
-        - 在阈值和强阈值之间线性插值为 0.5~0.8
-        - 超过强阈值为 0.8~1.0
-        - 有效时框越多，信心度越高
+        信心度计算公式（渐进式）：
+        - 单时框：置信度 = base × 0.80（保底 80% 比例，确保能触发交易）
+        - 双时框：置信度 = base × 0.90
+        - 三时框：置信度 = base × 1.00（满时框最高）
+        - 避免单时框因除以3导致置信度过低（<0.4）无法触发任何交易
         """
         abs_change = abs(change_pct)
+        total_tf = len(self.TIMEFRAME_WEIGHTS)  # 3
 
         if abs_change < self.threshold:
             # 信号不足，持仓观望
-            confidence = 1.0 - (abs_change / self.threshold) * 0.5  # 0.5~1.0 之间
-            return 'HOLD', round(confidence * (valid_count / 3), 2)
+            return 'HOLD', 0.0
 
         # 计算基础信心度（阈值~强阈值区间线性插值）
         if abs_change >= self.strong_threshold:
@@ -133,8 +137,9 @@ class MultiTimeframeStrategy:
             ratio = (abs_change - self.threshold) / (self.strong_threshold - self.threshold)
             base_confidence = 0.5 + ratio * 0.35  # 0.5 ~ 0.85
 
-        # 有效数据时框越多，信心度越高
-        data_factor = valid_count / len(self.TIMEFRAME_WEIGHTS)
+        # 渐进式多时框加成：1框=0.8，2框=0.9，3框=1.0
+        # 保证单时框下 base=0.5 → confidence=0.40，能触发交易
+        data_factor = 0.8 + 0.2 * (valid_count / total_tf)
         confidence = round(base_confidence * data_factor, 2)
 
         action = 'BUY' if change_pct > 0 else 'SELL'

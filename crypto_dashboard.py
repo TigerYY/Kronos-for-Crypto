@@ -238,9 +238,9 @@ if page == "📊 实时监控":
     # 控制栏
     col_sym, col_tf, col_btn = st.columns([2, 2, 1])
     with col_sym:
-        symbol = st.selectbox("交易对", ['BTC/USDT', 'ETH/USDT'], key='sym')
+        symbol = st.selectbox("交易对", ['BTC/USDT', 'ETH/USDT', 'ES=F'], key='sym')
     with col_tf:
-        timeframe = st.selectbox("时间周期", ['5m', '15m', '1h'], key='tf')
+        timeframe = st.selectbox("时间周期", ['5m', '15m', '1h', '4h', '1d'], key='tf')
     with col_btn:
         st.write("")
         run_btn = st.button("🔄 立即预测", use_container_width=True, type="primary")
@@ -262,7 +262,7 @@ if page == "📊 实时监控":
                 from crypto_simulator import LOOKBACK, PRED_LEN
 
                 # 获取不同时框数据（并行展示）
-                tf_data = sim.data_fetcher.fetch_multi_timeframe(symbol, ['5m', '15m', '1h'], LOOKBACK)
+                tf_data = sim.data_fetcher.fetch_multi_timeframe(symbol, ['5m', '15m', '1h', '4h', '1d'], LOOKBACK)
                 main_df = tf_data.get(timeframe)
 
                 if main_df is None:
@@ -346,8 +346,8 @@ if page == "📊 实时监控":
 
                     # ── 多时框信号详情 ────────────────────────
                     st.markdown('<div class="section-title">📡 多时间框架信号</div>', unsafe_allow_html=True)
-                    tf_cols = st.columns(3)
-                    for idx, tf in enumerate(['5m', '15m', '1h']):
+                    tf_cols = st.columns(4)
+                    for idx, tf in enumerate(['15m', '1h', '4h', '1d']):
                         with tf_cols[idx]:
                             pred_price = predictions.get(tf)
                             if pred_price is not None:
@@ -409,7 +409,7 @@ elif page == "🔬 回测分析":
     with st.expander("⚙️ 回测参数配置", expanded=True):
         c1, c2, c3 = st.columns(3)
         with c1:
-            bt_symbol = st.selectbox("交易对", ['BTC/USDT', 'ETH/USDT'], key='bt_sym')
+            bt_symbol = st.selectbox("交易对", ['BTC/USDT', 'ETH/USDT', 'ES=F'], key='bt_sym')
             bt_timeframe = st.selectbox("时间周期", ['1h', '4h', '15m'], key='bt_tf')
             bt_device = st.selectbox("计算设备", ['cpu', 'mps', 'cuda'], key='bt_dev')
         with c2:

@@ -1,9 +1,9 @@
 """
-数据获取模块
+数据获取模块（双数据源版）
 
-支持两种模式：
-1. 实时模式（online）：通过 ccxt 从 Binance 拉取最新 OHLCV 数据
-2. 离线模式（offline）：读取本地 CSV 文件，用于回测
+路由规则（根据 symbol 格式自动判断）：
+- 含 '/' 的 symbol（如 'BTC/USDT'）→ ccxt Binance 加密货币 API
+- 其他 symbol（如 'ES=F', 'GC=F'）→ yfinance 传统金融数据（延迟约15分钟）
 
 设计要点：本地缓存机制，避免频繁 API 请求被限速。
 """
@@ -19,16 +19,41 @@ from datetime import datetime, timedelta, timezone
 # 本地缓存目录
 CACHE_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'cache')
 
+# yfinance 时框映射（ccxt 格式 → yfinance interval 格式）
+YFINANCE_TF_MAP = {
+    '5m':  '5m',
+    '15m': '15m',
+    '1h':  '60m',   # yfinance 用 60m 而非 1h
+    '4h':  '1h',    # yfinance 无 4h，用 1h 采样后 resample 为 4h
+    '1d':  '1d',
+}
+
+# 非加密货币标的的显示名称
+TRADITIONAL_SYMBOL_NAMES = {
+    'ES=F':     '标普500期货 (ES)',
+    'NQ=F':     '纳指期货 (NQ)',
+    'GC=F':     '黄金期货 (GC)',
+    'CL=F':     '原油期货 (CL)',
+    'EURUSD=X': '欧元/美元',
+}
+
+
+def is_crypto(symbol: str) -> bool:
+    """判断是否为加密货币 symbol（含 '/' 的格式）"""
+    return '/' in symbol
+
 
 class DataFetcher:
     """
-    OHLCV 数据获取器
+    OHLCV 数据获取器（双数据源）
 
-    使用 CCXTBinance 拉取数据，内置内存缓存避免重复请求。
-    缓存有效期：5m 数据缓存 30 秒，其他时框缓存 60 秒。
+    - 加密货币（BTC/USDT 等）：使用 ccxt Binance API
+    - 传统金融标的（ES=F 等）：使用 yfinance（数据延迟约 15 分钟）
+
+    内置内存缓存，避免高频请求被限速：
+      5m → 30s，15m → 60s，1h/4h → 120~300s，1d → 600s
     """
 
-    # 各时框的缓存有效期（秒）
     CACHE_TTL = {
         '5m':  30,
         '15m': 60,
@@ -38,25 +63,20 @@ class DataFetcher:
     }
 
     def __init__(self, exchange_id: str = 'binance'):
-        """
-        Args:
-            exchange_id: ccxt 交易所 ID，默认 'binance'
-        """
-        # 初始化交易所（公开接口，无需 API Key）
+        # 初始化 ccxt 交易所（加密货币用）
         exchange_class = getattr(ccxt, exchange_id)
         self.exchange = exchange_class({
             'timeout': 30000,
-            'enableRateLimit': True,  # 自动遵守频率限制
+            'enableRateLimit': True,
         })
 
-        # 内存缓存: key=(symbol, timeframe), value=(timestamp, DataFrame)
+        # 内存缓存: key=(symbol, timeframe, limit), value=(timestamp, DataFrame)
         self._cache: Dict[tuple, tuple] = {}
 
-        # 确保缓存目录存在
         os.makedirs(CACHE_DIR, exist_ok=True)
 
     # ------------------------------------------------------------------ #
-    # 实时数据获取
+    # 公共接口：自动路由到对应数据源
     # ------------------------------------------------------------------ #
 
     def fetch_ohlcv(
@@ -67,34 +87,28 @@ class DataFetcher:
         use_cache: bool = True,
     ) -> pd.DataFrame:
         """
-        获取 OHLCV 数据（含缓存机制）
+        获取 OHLCV 数据，根据 symbol 自动选择数据源。
 
         Args:
-            symbol:    交易对，如 'BTC/USDT'
-            timeframe: 时间周期，如 '5m', '15m', '1h'
+            symbol:    交易标的，如 'BTC/USDT' 或 'ES=F'
+            timeframe: 时间周期，如 '15m', '1h', '4h', '1d'
             limit:     K线数量
             use_cache: 是否使用内存缓存
-
-        Returns:
-            包含 [timestamps, open, high, low, close, volume, amount] 的 DataFrame
         """
         cache_key = (symbol, timeframe, limit)
 
-        # 检查内存缓存是否仍然有效
         if use_cache and cache_key in self._cache:
             cached_time, cached_df = self._cache[cache_key]
             ttl = self.CACHE_TTL.get(timeframe, 60)
             if time.time() - cached_time < ttl:
                 return cached_df.copy()
 
-        # 从交易所拉取数据（额外多拉 20 条，防止数据截断）
-        raw = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit + 20)
+        if is_crypto(symbol):
+            df = self._fetch_crypto(symbol, timeframe, limit)
+        else:
+            df = self._fetch_yfinance(symbol, timeframe, limit)
 
-        df = self._raw_to_df(raw).tail(limit).reset_index(drop=True)
-
-        # 更新内存缓存
         self._cache[cache_key] = (time.time(), df)
-
         return df.copy()
 
     def fetch_multi_timeframe(
@@ -103,12 +117,7 @@ class DataFetcher:
         timeframes: list,
         limit: int = 512,
     ) -> Dict[str, Optional[pd.DataFrame]]:
-        """
-        批量获取多时框数据
-
-        Returns:
-            dict: {'5m': df, '15m': df, '1h': df}  失败的时框返回 None
-        """
+        """批量获取多时框数据，失败的时框返回 None"""
         result = {}
         for tf in timeframes:
             try:
@@ -118,10 +127,6 @@ class DataFetcher:
                 result[tf] = None
         return result
 
-    # ------------------------------------------------------------------ #
-    # 历史数据（用于回测）
-    # ------------------------------------------------------------------ #
-
     def fetch_historical(
         self,
         symbol: str,
@@ -129,20 +134,7 @@ class DataFetcher:
         start_date: str,
         end_date: str,
     ) -> pd.DataFrame:
-        """
-        获取历史 OHLCV 数据（用于回测）
-
-        优先读取本地缓存文件，若不存在则从 Binance 分段拉取并缓存。
-
-        Args:
-            symbol:     交易对，如 'BTC/USDT'
-            timeframe:  时间周期
-            start_date: 开始日期，如 '2024-01-01'
-            end_date:   结束日期，如 '2024-06-01'
-
-        Returns:
-            历史 OHLCV DataFrame
-        """
+        """获取历史数据（优先本地缓存，否则从对应数据源拉取）"""
         cache_file = self._get_cache_filepath(symbol, timeframe, start_date, end_date)
 
         if os.path.exists(cache_file):
@@ -150,25 +142,51 @@ class DataFetcher:
             df = pd.read_csv(cache_file, parse_dates=['timestamps'])
             return df
 
-        print(f"[DataFetcher] 从 Binance 拉取历史数据: {symbol} {timeframe} {start_date}~{end_date}")
-        df = self._fetch_historical_from_exchange(symbol, timeframe, start_date, end_date)
+        if is_crypto(symbol):
+            print(f"[DataFetcher] 从 Binance 拉取历史数据: {symbol} {timeframe}")
+            df = self._fetch_historical_crypto(symbol, timeframe, start_date, end_date)
+        else:
+            print(f"[DataFetcher] 从 yfinance 拉取历史数据: {symbol} {timeframe}")
+            df = self._fetch_historical_yfinance(symbol, timeframe, start_date, end_date)
 
-        # 保存到本地缓存
         df.to_csv(cache_file, index=False)
         print(f"[DataFetcher] 已缓存到: {cache_file}")
-
         return df
 
-    def _fetch_historical_from_exchange(
-        self,
-        symbol: str,
-        timeframe: str,
-        start_date: str,
-        end_date: str,
+    def get_current_price(self, symbol: str) -> float:
+        """获取当前最新价格"""
+        try:
+            if is_crypto(symbol):
+                ticker = self.exchange.fetch_ticker(symbol)
+                return float(ticker['last'])
+            else:
+                import yfinance as yf
+                df = yf.download(symbol, period='1d', interval='1m',
+                                 progress=False, auto_adjust=True)
+                if not df.empty:
+                    close = df['Close']
+                    if isinstance(close, pd.DataFrame):
+                        close = close.iloc[:, 0]
+                    return float(close.iloc[-1])
+        except Exception as e:
+            print(f"[DataFetcher] 获取 {symbol} 实时价格失败: {e}")
+        return 0.0
+
+    # ------------------------------------------------------------------ #
+    # 加密货币数据源（ccxt Binance）
+    # ------------------------------------------------------------------ #
+
+    def _fetch_crypto(self, symbol: str, timeframe: str, limit: int) -> pd.DataFrame:
+        """从 Binance 拉取加密货币 OHLCV"""
+        raw = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit + 20)
+        return self._raw_to_df(raw).tail(limit).reset_index(drop=True)
+
+    def _fetch_historical_crypto(
+        self, symbol: str, timeframe: str, start_date: str, end_date: str
     ) -> pd.DataFrame:
-        """分段从 Binance 拉取完整历史数据（每次最多 1000 条）"""
+        """分段从 Binance 拉取完整历史数据"""
         start_ts = int(pd.Timestamp(start_date, tz='UTC').timestamp() * 1000)
-        end_ts = int(pd.Timestamp(end_date, tz='UTC').timestamp() * 1000)
+        end_ts   = int(pd.Timestamp(end_date,   tz='UTC').timestamp() * 1000)
 
         all_data = []
         current_ts = start_ts
@@ -176,30 +194,83 @@ class DataFetcher:
         while current_ts < end_ts:
             try:
                 raw = self.exchange.fetch_ohlcv(
-                    symbol, timeframe,
-                    since=current_ts,
-                    limit=1000,
-                )
+                    symbol, timeframe, since=current_ts, limit=1000)
                 if not raw:
                     break
-
                 all_data.extend(raw)
-                current_ts = raw[-1][0] + 1  # 下一段从最后一条的下一毫秒开始
-
-                # 避免触发频率限制
+                current_ts = raw[-1][0] + 1
                 time.sleep(self.exchange.rateLimit / 1000)
-
             except Exception as e:
                 print(f"[DataFetcher] 分段拉取失败: {e}")
                 break
 
         if not all_data:
-            return pd.DataFrame(columns=['timestamps', 'open', 'high', 'low', 'close', 'volume', 'amount'])
+            return pd.DataFrame(columns=['timestamps','open','high','low','close','volume','amount'])
 
         df = self._raw_to_df(all_data)
-
-        # 过滤到指定时间范围
         df = df[df['timestamps'] <= pd.Timestamp(end_date, tz='UTC').tz_localize(None)]
+        return df.reset_index(drop=True)
+
+    # ------------------------------------------------------------------ #
+    # 传统金融数据源（yfinance）
+    # ------------------------------------------------------------------ #
+
+    def _fetch_yfinance(self, symbol: str, timeframe: str, limit: int) -> pd.DataFrame:
+        """
+        通过 yfinance 拉取传统金融标的 OHLCV。
+
+        yfinance intraday 数据时长限制：
+          5m/15m: 最多 60 天  |  60m: 最多 730 天  |  1d: 无限制
+        4h 通过对 1h 数据 resample 实现。
+        """
+        import yfinance as yf
+
+        yf_interval = YFINANCE_TF_MAP.get(timeframe, '1h')
+        period_map = {
+            '5m':  '60d',
+            '15m': '60d',
+            '1h':  '730d',
+            '4h':  '730d',
+            '1d':  'max',
+        }
+        period = period_map.get(timeframe, '60d')
+
+        df_raw = yf.download(
+            symbol, period=period, interval=yf_interval,
+            progress=False, auto_adjust=True,
+        )
+
+        if df_raw.empty:
+            return pd.DataFrame(columns=['timestamps','open','high','low','close','volume','amount'])
+
+        df = self._yfinance_to_df(df_raw)
+
+        if timeframe == '4h':
+            df = self._resample_df(df, '4h')
+
+        return df.tail(limit).reset_index(drop=True)
+
+    def _fetch_historical_yfinance(
+        self, symbol: str, timeframe: str, start_date: str, end_date: str
+    ) -> pd.DataFrame:
+        """通过 yfinance 拉取指定日期范围的历史数据"""
+        import yfinance as yf
+
+        yf_interval = YFINANCE_TF_MAP.get(timeframe, '1d')
+
+        df_raw = yf.download(
+            symbol, start=start_date, end=end_date,
+            interval=yf_interval, progress=False, auto_adjust=True,
+        )
+
+        if df_raw.empty:
+            return pd.DataFrame(columns=['timestamps','open','high','low','close','volume','amount'])
+
+        df = self._yfinance_to_df(df_raw)
+
+        if timeframe == '4h':
+            df = self._resample_df(df, '4h')
+
         return df.reset_index(drop=True)
 
     # ------------------------------------------------------------------ #
@@ -208,40 +279,80 @@ class DataFetcher:
 
     def _raw_to_df(self, raw: list) -> pd.DataFrame:
         """将 ccxt 返回的原始列表转为标准 DataFrame"""
-        df = pd.DataFrame(raw, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
+        df = pd.DataFrame(raw, columns=['timestamp','open','high','low','close','volume'])
         df['timestamps'] = pd.to_datetime(df['timestamp'], unit='ms')
-
-        # 将数值列统一为 float
-        for col in ['open', 'high', 'low', 'close', 'volume']:
+        for col in ['open','high','low','close','volume']:
             df[col] = pd.to_numeric(df[col], errors='coerce')
-
-        # 构造 amount 列（成交额 = close × volume）
         df['amount'] = df['close'] * df['volume']
+        df = df.drop_duplicates(subset='timestamps', keep='last')
+        df = df.sort_values('timestamps').reset_index(drop=True)
+        return df[['timestamps','open','high','low','close','volume','amount']]
 
-        # 去除重复时间戳，保留最新的
+    def _yfinance_to_df(self, df_raw: pd.DataFrame) -> pd.DataFrame:
+        """
+        将 yfinance 返回的 DataFrame 转为与 ccxt 统一的标准格式。
+
+        yfinance 新版（>=0.2.x）默认返回 MultiIndex 列：
+            Level 0 = Price 字段（Close/High/Low/Open/Volume）
+            Level 1 = Ticker（如 ES=F）
+        必须用 xs(ticker, level='Ticker') 按 Ticker 切片，
+        而不能直接 get_level_values(0)（会按字母排序返回，导致列名混乱）。
+        """
+        df = df_raw.copy()
+
+        # ── 处理 MultiIndex 列（Price, Ticker 两级）──────────────────
+        if isinstance(df.columns, pd.MultiIndex):
+            # 取第一个 Ticker 名（单标的下载只有一个）
+            ticker = df.columns.get_level_values(1)[0]
+            try:
+                # xs: 按 Ticker 层切片，得到以 Price 字段名为列的普通 DataFrame
+                df = df.xs(ticker, axis=1, level=1)
+            except Exception:
+                # 备用：直接展开 level 0（可能有重复则取最后一条）
+                df = df.loc[:, ~df.columns.get_level_values(0).duplicated(keep='last')]
+                df.columns = df.columns.get_level_values(0)
+
+        # ── 统一列名为小写 ─────────────────────────────────
+        df = df.rename(columns={
+            'Open': 'open', 'High': 'high',
+            'Low':  'low',  'Close': 'close',
+            'Volume': 'volume',
+        })
+
+        # ── 处理时间索引 ───────────────────────────────────
+        df.index.name = 'timestamps'
+        df = df.reset_index()
+        df['timestamps'] = pd.to_datetime(df['timestamps'])
+
+        # 去除时区（统一为 naive datetime，与 ccxt 保持一致）
+        if df['timestamps'].dt.tz is not None:
+            df['timestamps'] = df['timestamps'].dt.tz_localize(None)
+
+        # ── 补充 amount 列、清洗数据 ───────────────────────────
+        df['volume'] = pd.to_numeric(df.get('volume', 0), errors='coerce').fillna(0)
+        df['amount'] = df['close'] * df['volume']
+        df = df.dropna(subset=['open', 'high', 'low', 'close'])
         df = df.drop_duplicates(subset='timestamps', keep='last')
         df = df.sort_values('timestamps').reset_index(drop=True)
 
-        # 只保留有效列
         return df[['timestamps', 'open', 'high', 'low', 'close', 'volume', 'amount']]
 
+    def _resample_df(self, df: pd.DataFrame, rule: str) -> pd.DataFrame:
+        """将分钟/小时 DataFrame resample 到更长周期（如 4h）"""
+        df = df.set_index('timestamps')
+        resampled = df.resample(rule).agg({
+            'open':   'first',
+            'high':   'max',
+            'low':    'min',
+            'close':  'last',
+            'volume': 'sum',
+            'amount': 'sum',
+        }).dropna()
+        return resampled.reset_index()
+
     def _get_cache_filepath(
-        self,
-        symbol: str,
-        timeframe: str,
-        start_date: str,
-        end_date: str,
+        self, symbol: str, timeframe: str, start_date: str, end_date: str
     ) -> str:
-        """生成本地缓存文件路径"""
-        safe_symbol = symbol.replace('/', '_')
+        safe_symbol = symbol.replace('/', '_').replace('=', '_')
         filename = f"{safe_symbol}_{timeframe}_{start_date}_{end_date}.csv"
         return os.path.join(CACHE_DIR, filename)
-
-    def get_current_price(self, symbol: str) -> float:
-        """获取当前最新价格（ticker）"""
-        try:
-            ticker = self.exchange.fetch_ticker(symbol)
-            return float(ticker['last'])
-        except Exception as e:
-            print(f"[DataFetcher] 获取 {symbol} 实时价格失败: {e}")
-            return 0.0

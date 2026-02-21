@@ -15,3 +15,4 @@ streamlit>=1.30.0    # Web Dashboard
 plotly>=5.17.0       # 交互式图表（K线、净值曲线）
 flask>=2.3.0         # WebUI 后端（已有 webui/ 使用）
 flask-cors>=4.0.0
+yfinance>=0.2.40     # 传统金融数据（ES=F 等期货/股票）

@@ -73,3 +73,8 @@ venv.bak/
 *.temp
 temp/
 tmp/
+
+# 数据缓存（体积大，不入库）
+data/cache/
+*.json
+simulation_log.csv
