@@ -1,0 +1,21 @@
+# 忽略无需部署到 Vercel Serverless 环境的文件和目录
+.venv/
+venv/
+__pycache__/
+.git/
+.gitignore
+
+# 忽略根目录的重量级依赖文件（避免 Vercel 安装 PyTorch 导致超时/超体积）
+requirements.txt
+
+# 忽略模拟器和回测组件（Vercel 免费版无法运行长连接和长耗时任务）
+crypto_simulator.py
+crypto_dashboard.py
+start.sh
+trading/
+backtest/
+
+# 模型权重不部署（Vercel 免费版函数最大体积 250MB，远不够装 PyTorch + 模型）
+model/
+finetune/
+examples/

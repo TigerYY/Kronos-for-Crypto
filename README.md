@@ -97,6 +97,20 @@ pip install -r requirements.txt
 
 ---
 
+## ☁️ 一键部署 (Vercel)
+
+本项目中的 **WebUI (Flask)** 完全适配 Vercel Serverless 环境，支持一键零配置免费部署。
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FTigerYY%2FKronos-for-Crypto)
+
+> **⚠️ Vercel 部署说明及限制**
+>
+> - **体积限制**：Vercel Serverless Function 免费版最大支持 250MB，因此无法打包庞大的 PyTorch 及 Kronos 模型。
+> - **功能降级**：Vercel 部署版为**轻量级展示版**。你可以正常访问该项目的 WebUI 及交互式 K 线图表，但**无法执行实时预测**，仅可查看预置的数据模拟效果。
+> - **完整体验**：如需体验实际的加密货币自动交易、真实回测及 AI 预测推断，请务必在本地或独立 GPU 机器上部署运行。
+
+---
+
 ## 🖥️ 界面功能
 
 ### 📊 实时监控
