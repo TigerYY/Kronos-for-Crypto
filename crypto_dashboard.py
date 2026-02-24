@@ -209,15 +209,10 @@ def make_candle_chart(df: pd.DataFrame, pred_df=None, symbol="", timeframe="") -
 
 
 # ────────────────────────────────────────────────────────
-# 侧边栏
+# 侧边栏（单页应用）
 # ────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 🪐 Kronos Trading")
-    page = st.radio(
-        "导航",
-        ["📊 实时监控", "🔬 回测分析", "⚙️ 策略配置"],
-        label_visibility='collapsed',
-    )
     st.divider()
 
     # 组合摘要（始终显示）
@@ -228,11 +223,9 @@ with st.sidebar:
 
 
 # ════════════════════════════════════════════════════════
-# 页面 1：实时监控
+# 页面：实时监控（唯一页面）
 # ════════════════════════════════════════════════════════
-if page == "📊 实时监控":
-
-    st.markdown("""
+st.markdown("""
     <div class="main-header">
         <h1>📊 实时监控</h1>
         <p>Kronos 多时间框架预测 · 实时行情 · 信号生成</p>
@@ -240,167 +233,167 @@ if page == "📊 实时监控":
     """, unsafe_allow_html=True)
 
     # 控制栏
-    col_sym, col_tf, col_btn = st.columns([2, 2, 1])
-    with col_sym:
-        symbol = st.selectbox("交易对", ['BTC/USDT', 'ETH/USDT', 'ES=F'], key='sym')
-    with col_tf:
-        timeframe = st.selectbox("时间周期", ['5m', '15m', '1h', '4h', '1d'], key='tf')
-    with col_btn:
-        st.write("")
-        run_btn = st.button("🔄 立即预测", use_container_width=True, type="primary")
+col_sym, col_tf, col_btn = st.columns([2, 2, 1])
+with col_sym:
+    symbol = st.selectbox("交易对", ['BTC/USDT', 'ETH/USDT', 'ES=F'], key='sym')
+with col_tf:
+    timeframe = st.selectbox("时间周期", ['5m', '15m', '1h', '4h', '1d'], key='tf')
+with col_btn:
+    st.write("")
+    run_btn = st.button("🔄 立即预测", use_container_width=True, type="primary")
 
-    auto_refresh = st.checkbox("⏱ 自动刷新（60s）", value=False)
+auto_refresh = st.checkbox("⏱ 自动刷新（60s）", value=False)
 
-    # 加载模拟器并执行预测
-    with st.spinner("加载 Kronos 模型中...（首次需要下载，约1~2分钟）"):
+# 加载模拟器并执行预测
+with st.spinner("加载 Kronos 模型中...（首次需要下载，约1~2分钟）"):
+    try:
+        sim = load_simulator()
+        model_loaded = True
+    except Exception as e:
+        st.error(f"模型加载失败: {e}")
+        model_loaded = False
+
+if model_loaded:
+    with st.spinner(f"正在拉取 {symbol} {timeframe} 行情并预测..."):
         try:
-            sim = load_simulator()
-            model_loaded = True
-        except Exception as e:
-            st.error(f"模型加载失败: {e}")
-            model_loaded = False
+            from crypto_simulator import LOOKBACK, PRED_LEN
 
-    if model_loaded:
-        with st.spinner(f"正在拉取 {symbol} {timeframe} 行情并预测..."):
-            try:
-                from crypto_simulator import LOOKBACK, PRED_LEN
+            # 获取不同时框数据（并行展示）
+            tf_data = sim.data_fetcher.fetch_multi_timeframe(symbol, ['5m', '15m', '1h', '4h', '1d'], LOOKBACK)
+            main_df = tf_data.get(timeframe)
 
-                # 获取不同时框数据（并行展示）
-                tf_data = sim.data_fetcher.fetch_multi_timeframe(symbol, ['5m', '15m', '1h', '4h', '1d'], LOOKBACK)
-                main_df = tf_data.get(timeframe)
+            if main_df is None:
+                st.error("数据获取失败，请检查网络连接")
+            else:
+                current_price = float(main_df['close'].iloc[-1])
 
-                if main_df is None:
-                    st.error("数据获取失败，请检查网络连接")
-                else:
-                    current_price = float(main_df['close'].iloc[-1])
-
-                    # 各时框预测
-                    predictions = {}
-                    pred_dfs = {}
-                    for tf, df in tf_data.items():
-                        if df is not None and len(df) >= LOOKBACK:
-                            try:
-                                p = sim.predict(df)
-                                predictions[tf] = float(p['close'].iloc[-1])
-                                pred_dfs[tf] = p
-                            except Exception:
-                                predictions[tf] = None
-                        else:
+                # 各时框预测
+                predictions = {}
+                pred_dfs = {}
+                for tf, df in tf_data.items():
+                    if df is not None and len(df) >= LOOKBACK:
+                        try:
+                            p = sim.predict(df)
+                            predictions[tf] = float(p['close'].iloc[-1])
+                            pred_dfs[tf] = p
+                        except Exception:
                             predictions[tf] = None
+                    else:
+                        predictions[tf] = None
 
-                    # 生成信号
-                    signal = sim.strategy.generate_signal(predictions, current_price)
+                # 生成信号
+                signal = sim.strategy.generate_signal(predictions, current_price)
 
-                    # ── 顶部指标行 ─────────────────────────────
-                    m1, m2, m3, m4 = st.columns(4)
-                    with m1:
-                        st.metric("当前价格", f"${current_price:,.2f}")
-                    with m2:
-                        predicted = predictions.get(timeframe)
-                        if predicted:
-                            chg = (predicted - current_price) / current_price
-                            st.metric("预测价格", f"${predicted:,.2f}",
-                                      delta=f"{chg:+.2%}")
-                    with m3:
-                        signal_html = {
-                            'BUY': '<div class="signal-card signal-buy"><div style="color:#00ff88;font-size:1.8em;font-weight:800">▲ BUY</div></div>',
-                            'SELL': '<div class="signal-card signal-sell"><div style="color:#ff4757;font-size:1.8em;font-weight:800">▼ SELL</div></div>',
-                            'HOLD': '<div class="signal-card signal-hold"><div style="color:#ffa502;font-size:1.8em;font-weight:800">◆ HOLD</div></div>',
-                        }
-                        st.markdown(signal_html.get(signal.action, ''), unsafe_allow_html=True)
-                    with m4:
-                        val = sim.portfolio.get_total_value({symbol: current_price})
-                        initial = 10000.0
-                        st.metric("组合总值", f"${val:,.2f}",
-                                  delta=f"{(val-initial)/initial:+.2%}")
+                # ── 顶部指标行 ─────────────────────────────
+                m1, m2, m3, m4 = st.columns(4)
+                with m1:
+                    st.metric("当前价格", f"${current_price:,.2f}")
+                with m2:
+                    predicted = predictions.get(timeframe)
+                    if predicted:
+                        chg = (predicted - current_price) / current_price
+                        st.metric("预测价格", f"${predicted:,.2f}",
+                                  delta=f"{chg:+.2%}")
+                with m3:
+                    signal_html = {
+                        'BUY': '<div class="signal-card signal-buy"><div style="color:#00ff88;font-size:1.8em;font-weight:800">▲ BUY</div></div>',
+                        'SELL': '<div class="signal-card signal-sell"><div style="color:#ff4757;font-size:1.8em;font-weight:800">▼ SELL</div></div>',
+                        'HOLD': '<div class="signal-card signal-hold"><div style="color:#ffa502;font-size:1.8em;font-weight:800">◆ HOLD</div></div>',
+                    }
+                    st.markdown(signal_html.get(signal.action, ''), unsafe_allow_html=True)
+                with m4:
+                    val = sim.portfolio.get_total_value({symbol: current_price})
+                    initial = 10000.0
+                    st.metric("组合总值", f"${val:,.2f}",
+                              delta=f"{(val-initial)/initial:+.2%}")
 
-                    # ── K 线图 ──────────────────────────────────
-                    pred_df_main = pred_dfs.get(timeframe)
-                    fig = make_candle_chart(main_df, pred_df_main, symbol, timeframe)
+                # ── K 线图 ──────────────────────────────────
+                pred_df_main = pred_dfs.get(timeframe)
+                fig = make_candle_chart(main_df, pred_df_main, symbol, timeframe)
 
-                    # 叠加交易标记
-                    log_df = load_trade_log()
-                    if not log_df.empty:
-                        sym_trades = log_df[log_df['symbol'] == symbol].copy()
-                        sym_trades['ts_local'] = sym_trades['timestamp']\
-                            .dt.tz_localize('UTC').dt.tz_convert('Asia/Shanghai')
-                        min_ts = pd.to_datetime(main_df['timestamps'].min(),utc=True)\
-                            .tz_convert('Asia/Shanghai')
-                        sym_trades = sym_trades[sym_trades['ts_local'] >= min_ts]
+                # 叠加交易标记
+                log_df = load_trade_log()
+                if not log_df.empty:
+                    sym_trades = log_df[log_df['symbol'] == symbol].copy()
+                    sym_trades['ts_local'] = sym_trades['timestamp']\
+                        .dt.tz_localize('UTC').dt.tz_convert('Asia/Shanghai')
+                    min_ts = pd.to_datetime(main_df['timestamps'].min(),utc=True)\
+                        .tz_convert('Asia/Shanghai')
+                    sym_trades = sym_trades[sym_trades['ts_local'] >= min_ts]
 
-                        buys = sym_trades[sym_trades['action'] == 'BUY']
-                        sells = sym_trades[sym_trades['action'].isin(['SELL','STOP_LOSS','TAKE_PROFIT'])]
+                    buys = sym_trades[sym_trades['action'] == 'BUY']
+                    sells = sym_trades[sym_trades['action'].isin(['SELL','STOP_LOSS','TAKE_PROFIT'])]
 
-                        if not buys.empty:
-                            fig.add_trace(go.Scatter(
-                                x=buys['ts_local'], y=buys['price'],
-                                mode='markers',
-                                marker=dict(symbol='triangle-up', size=14, color='#00ff88'),
-                                name='买入点',
-                            ), row=1, col=1)
-                        if not sells.empty:
-                            fig.add_trace(go.Scatter(
-                                x=sells['ts_local'], y=sells['price'],
-                                mode='markers',
-                                marker=dict(symbol='triangle-down', size=14, color='#ff4757'),
-                                name='卖出点',
-                            ), row=1, col=1)
+                    if not buys.empty:
+                        fig.add_trace(go.Scatter(
+                            x=buys['ts_local'], y=buys['price'],
+                            mode='markers',
+                            marker=dict(symbol='triangle-up', size=14, color='#00ff88'),
+                            name='买入点',
+                        ), row=1, col=1)
+                    if not sells.empty:
+                        fig.add_trace(go.Scatter(
+                            x=sells['ts_local'], y=sells['price'],
+                            mode='markers',
+                            marker=dict(symbol='triangle-down', size=14, color='#ff4757'),
+                            name='卖出点',
+                        ), row=1, col=1)
 
-                    st.plotly_chart(fig, use_container_width=True)
+                st.plotly_chart(fig, use_container_width=True)
 
-                    # ── 多时框信号详情 ────────────────────────
-                    st.markdown('<div class="section-title">📡 多时间框架信号</div>', unsafe_allow_html=True)
-                    tf_cols = st.columns(4)
-                    for idx, tf in enumerate(['15m', '1h', '4h', '1d']):
-                        with tf_cols[idx]:
-                            pred_price = predictions.get(tf)
-                            if pred_price is not None:
-                                chg = (pred_price - current_price) / current_price
-                                color = '#00ff88' if chg > 0 else '#ff4757'
-                                st.markdown(f"""
-                                <div class="metric-card">
-                                    <div class="metric-label">{tf}</div>
-                                    <div class="metric-value">${pred_price:,.2f}</div>
-                                    <div style="color:{color};font-size:0.85em;margin-top:4px">{chg:+.2%}</div>
-                                </div>
-                                """, unsafe_allow_html=True)
-                            else:
-                                st.markdown(f"""
-                                <div class="metric-card">
-                                    <div class="metric-label">{tf}</div>
-                                    <div class="metric-value" style="color:#666">N/A</div>
-                                </div>
-                                """, unsafe_allow_html=True)
+                # ── 多时框信号详情 ────────────────────────
+                st.markdown('<div class="section-title">📡 多时间框架信号</div>', unsafe_allow_html=True)
+                tf_cols = st.columns(4)
+                for idx, tf in enumerate(['15m', '1h', '4h', '1d']):
+                    with tf_cols[idx]:
+                        pred_price = predictions.get(tf)
+                        if pred_price is not None:
+                            chg = (pred_price - current_price) / current_price
+                            color = '#00ff88' if chg > 0 else '#ff4757'
+                            st.markdown(f"""
+                            <div class="metric-card">
+                                <div class="metric-label">{tf}</div>
+                                <div class="metric-value">${pred_price:,.2f}</div>
+                                <div style="color:{color};font-size:0.85em;margin-top:4px">{chg:+.2%}</div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                        else:
+                            st.markdown(f"""
+                            <div class="metric-card">
+                                <div class="metric-label">{tf}</div>
+                                <div class="metric-value" style="color:#666">N/A</div>
+                            </div>
+                            """, unsafe_allow_html=True)
 
-                    # ── 信号置信度条 ────────────────────────────
-                    st.markdown(f"**信号置信度: {signal.confidence:.1%}**")
-                    st.progress(signal.confidence)
-                    st.caption(" · ".join(signal.reasons))
+                # ── 信号置信度条 ────────────────────────────
+                st.markdown(f"**信号置信度: {signal.confidence:.1%}**")
+                st.progress(signal.confidence)
+                st.caption(" · ".join(signal.reasons))
 
-            except Exception as e:
-                st.error(f"预测出错: {e}")
-                import traceback; st.code(traceback.format_exc())
+        except Exception as e:
+            st.error(f"预测出错: {e}")
+            import traceback; st.code(traceback.format_exc())
 
-    # ── 近期交易记录 ───────────────────────────────────────
-    st.markdown('<div class="section-title">📋 近期交易记录</div>', unsafe_allow_html=True)
-    log_df = load_trade_log()
-    if not log_df.empty:
-        display_cols = ['timestamp', 'symbol', 'action', 'price', 'amount', 'portfolio_value', 'reason']
-        available = [c for c in display_cols if c in log_df.columns]
-        st.dataframe(log_df[available].tail(15).sort_index(ascending=False),
-                     use_container_width=True, hide_index=True)
-    else:
-        st.info("暂无交易记录，等待模拟器运行...")
+# ── 近期交易记录 ───────────────────────────────────────
+st.markdown('<div class="section-title">📋 近期交易记录</div>', unsafe_allow_html=True)
+log_df = load_trade_log()
+if not log_df.empty:
+    display_cols = ['timestamp', 'symbol', 'action', 'price', 'amount', 'portfolio_value', 'reason']
+    available = [c for c in display_cols if c in log_df.columns]
+    st.dataframe(log_df[available].tail(15).sort_index(ascending=False),
+                 use_container_width=True, hide_index=True)
+else:
+    st.info("暂无交易记录，等待模拟器运行...")
 
-    if auto_refresh:
-        time.sleep(60)
-        st.rerun()
+if auto_refresh:
+    time.sleep(60)
+    st.rerun()
 
 
 # ════════════════════════════════════════════════════════
-# 页面 2：回测分析
+# 页面 2：回测分析（已禁用）
 # ════════════════════════════════════════════════════════
-elif page == "🔬 回测分析":
+if False:  # 回测分析页面已禁用
 
     st.markdown("""
     <div class="main-header">
@@ -528,9 +521,9 @@ elif page == "🔬 回测分析":
 
 
 # ════════════════════════════════════════════════════════
-# 页面 3：策略配置
+# 页面 3：策略配置（已禁用）
 # ════════════════════════════════════════════════════════
-elif page == "⚙️ 策略配置":
+if False:  # 策略配置页面已禁用
 
     st.markdown("""
     <div class="main-header">
