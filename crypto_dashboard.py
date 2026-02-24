@@ -19,7 +19,11 @@ import os
 import sys
 import time
 import json
-import torch
+try:
+    import torch
+    TORCH_AVAILABLE = True
+except ImportError:
+    TORCH_AVAILABLE = False
 from datetime import datetime, timedelta
 
 # 确保项目根目录在路径中

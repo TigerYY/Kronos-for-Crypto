@@ -78,3 +78,6 @@ tmp/
 data/cache/
 *.json
 simulation_log.csv
+prediction_results/
+strategy_config.json
+portfolio_state.json
