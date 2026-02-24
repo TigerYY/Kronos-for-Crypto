@@ -103,7 +103,13 @@ def create_dataloaders(config):
         seed=config.seed,
         train_ratio=config.train_ratio,
         val_ratio=config.val_ratio,
-        test_ratio=config.test_ratio
+        test_ratio=config.test_ratio,
+        normalization=getattr(config, 'normalization', 'window'),
+        missing_strategy=getattr(config, 'missing_strategy', 'ffill'),
+        outlier_method=getattr(config, 'outlier_method', 'none'),
+        outlier_quantile_low=getattr(config, 'outlier_quantile_low', 0.001),
+        outlier_quantile_high=getattr(config, 'outlier_quantile_high', 0.999),
+        outlier_zscore_threshold=getattr(config, 'outlier_zscore_threshold', 5.0),
     )
     
     val_dataset = CustomKlineDataset(
@@ -115,7 +121,13 @@ def create_dataloaders(config):
         seed=config.seed + 1,
         train_ratio=config.train_ratio,
         val_ratio=config.val_ratio,
-        test_ratio=config.test_ratio
+        test_ratio=config.test_ratio,
+        normalization=getattr(config, 'normalization', 'window'),
+        missing_strategy=getattr(config, 'missing_strategy', 'ffill'),
+        outlier_method=getattr(config, 'outlier_method', 'none'),
+        outlier_quantile_low=getattr(config, 'outlier_quantile_low', 0.001),
+        outlier_quantile_high=getattr(config, 'outlier_quantile_high', 0.999),
+        outlier_zscore_threshold=getattr(config, 'outlier_zscore_threshold', 5.0),
     )
     
     use_ddp = dist.is_available() and dist.is_initialized()

@@ -127,6 +127,13 @@ class CustomFinetuneConfig:
         self.train_ratio = data_config.get('train_ratio', 0.9)
         self.val_ratio = data_config.get('val_ratio', 0.1)
         self.test_ratio = data_config.get('test_ratio', 0.0)
+        # data cleaning / normalization options (all optional, with safe defaults)
+        self.normalization = data_config.get('normalization', 'window')  # 'window' or 'dataset'
+        self.missing_strategy = data_config.get('missing_strategy', 'ffill')  # 'ffill' | 'bfill' | 'drop'
+        self.outlier_method = data_config.get('outlier_method', 'none')  # 'none' | 'quantile' | 'zscore'
+        self.outlier_quantile_low = data_config.get('outlier_quantile_low', 0.001)
+        self.outlier_quantile_high = data_config.get('outlier_quantile_high', 0.999)
+        self.outlier_zscore_threshold = data_config.get('outlier_zscore_threshold', 5.0)
         
         # training configuration
         training_config = self.loader.get_training_config()

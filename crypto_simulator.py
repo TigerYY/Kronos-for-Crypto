@@ -150,8 +150,8 @@ class CryptoSimulator:
 
     def __init__(
         self,
-        model_name: str = 'NeoQuasar/Kronos-small',
-        tokenizer_name: str = 'NeoQuasar/Kronos-Tokenizer-base',
+        model_name: str | None = None,
+        tokenizer_name: str | None = None,
         threshold: float = 0.005,
         stop_loss_pct: float = 0.03,
         take_profit_pct: float = 0.08,
@@ -165,10 +165,16 @@ class CryptoSimulator:
             self.device = 'cpu'
         print(f"[Simulator] 使用设备: {self.device}")
 
-        # 加载 Kronos 模型
-        print(f"[Simulator] 加载模型: {model_name} ...")
-        self.tokenizer = KronosTokenizer.from_pretrained(tokenizer_name)
-        self.model_obj = Kronos.from_pretrained(model_name)
+        # 允许通过环境变量或参数覆盖模型路径（支持本地微调模型目录）
+        env_model = os.getenv("KRONOS_MODEL_ID")
+        env_tokenizer = os.getenv("KRONOS_TOKENIZER_ID")
+        resolved_model_name = model_name or env_model or "NeoQuasar/Kronos-small"
+        resolved_tokenizer_name = tokenizer_name or env_tokenizer or "NeoQuasar/Kronos-Tokenizer-base"
+
+        print(f"[Simulator] 加载模型: {resolved_model_name}")
+        print(f"[Simulator] 使用 tokenizer: {resolved_tokenizer_name}")
+        self.tokenizer = KronosTokenizer.from_pretrained(resolved_tokenizer_name)
+        self.model_obj = Kronos.from_pretrained(resolved_model_name)
         self.predictor = KronosPredictor(
             self.model_obj, self.tokenizer,
             device=self.device,

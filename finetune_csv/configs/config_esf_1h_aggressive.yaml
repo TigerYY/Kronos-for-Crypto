@@ -1,0 +1,60 @@
+# Kronos ES=F 1h 微调配置（激进版）
+# 更长窗口、略高学习率，适合探索期货日内结构
+
+data:
+  data_path: "/path/to/your/ESF_1h.csv"
+
+  lookback_window: 768
+  predict_window: 48
+  max_context: 768
+
+  clip: 6.0
+  train_ratio: 0.9
+  val_ratio: 0.1
+  test_ratio: 0.0
+
+  normalization: "dataset"
+  missing_strategy: "ffill"
+  outlier_method: "zscore"
+  outlier_zscore_threshold: 4.0
+
+training:
+  tokenizer_epochs: 25
+  basemodel_epochs: 25
+
+  batch_size: 48
+  log_interval: 50
+  num_workers: 6
+  seed: 123
+
+  tokenizer_learning_rate: 0.0003
+  predictor_learning_rate: 0.00002
+
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  adam_weight_decay: 0.05
+  accumulation_steps: 1
+
+model_paths:
+  pretrained_tokenizer: "/path/to/your/pretrained/Kronos-Tokenizer-base"
+  pretrained_predictor: "/path/to/your/pretrained/Kronos-base"
+
+  exp_name: "ESF_1h_aggressive"
+  base_path: "/path/to/your/Kronos/finetune_csv/finetuned"
+
+  base_save_path: ""
+  finetuned_tokenizer: ""
+  tokenizer_save_name: "tokenizer"
+  basemodel_save_name: "basemodel"
+
+experiment:
+  name: "kronos_esf_1h_aggressive"
+  description: "ES=F 1h, aggressive config with longer lookback"
+  use_comet: false
+  train_tokenizer: true
+  train_basemodel: true
+  skip_existing: false
+
+device:
+  use_cuda: true
+  device_id: 0

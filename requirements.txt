@@ -16,3 +16,7 @@ plotly>=5.17.0       # 交互式图表（K线、净值曲线）
 flask>=2.3.0         # WebUI 后端（已有 webui/ 使用）
 flask-cors>=4.0.0
 yfinance>=0.2.40     # 传统金融数据（ES=F 等期货/股票）
+
+# ── FastAPI 统一后端 ──
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0

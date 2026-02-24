@@ -24,8 +24,24 @@ from config_loader import CustomFinetuneConfig
 
 class CustomKlineDataset(Dataset):
     
-    def __init__(self, data_path, data_type='train', lookback_window=90, predict_window=10, 
-                 clip=5.0, seed=100, train_ratio=0.7, val_ratio=0.15, test_ratio=0.15):
+    def __init__(
+        self,
+        data_path,
+        data_type='train',
+        lookback_window=90,
+        predict_window=10,
+        clip=5.0,
+        seed=100,
+        train_ratio=0.7,
+        val_ratio=0.15,
+        test_ratio=0.15,
+        normalization='window',
+        missing_strategy='ffill',
+        outlier_method='none',
+        outlier_quantile_low=0.001,
+        outlier_quantile_high=0.999,
+        outlier_zscore_threshold=5.0,
+    ):
         self.data_path = data_path
         self.data_type = data_type
         self.lookback_window = lookback_window
@@ -36,6 +52,12 @@ class CustomKlineDataset(Dataset):
         self.train_ratio = train_ratio
         self.val_ratio = val_ratio
         self.test_ratio = test_ratio
+        self.normalization = normalization
+        self.missing_strategy = missing_strategy
+        self.outlier_method = outlier_method
+        self.outlier_quantile_low = outlier_quantile_low
+        self.outlier_quantile_high = outlier_quantile_high
+        self.outlier_zscore_threshold = outlier_zscore_threshold
         
         self.feature_list = ['open', 'high', 'low', 'close', 'volume', 'amount']
         self.time_feature_list = ['minute', 'hour', 'weekday', 'day', 'month']
@@ -53,7 +75,11 @@ class CustomKlineDataset(Dataset):
         df = pd.read_csv(self.data_path)
         
         df['timestamps'] = pd.to_datetime(df['timestamps'])
-        df = df.sort_values('timestamps').reset_index(drop=True)
+        df = (
+            df.sort_values('timestamps')
+            .drop_duplicates(subset='timestamps', keep='last')
+            .reset_index(drop=True)
+        )
         
         self.timestamps = df['timestamps'].copy()
         
@@ -65,12 +91,43 @@ class CustomKlineDataset(Dataset):
         
         self.data = df[self.feature_list + self.time_feature_list].copy()
         
+        # 缺失值处理策略
         if self.data.isnull().any().any():
-            print("Warning: Missing values found in data, performing forward fill")
-            self.data = self.data.fillna(method='ffill')
+            print(f"Warning: Missing values found in data, applying missing_strategy={self.missing_strategy}")
+            if self.missing_strategy == 'drop':
+                self.data = self.data.dropna()
+            elif self.missing_strategy == 'bfill':
+                self.data = self.data.bfill().ffill()
+            else:  # default: 'ffill'
+                self.data = self.data.ffill().bfill()
+        
+        # 异常值处理和数据级统计（仅作用于价格/成交等数值特征）
+        feature_df = self.data[self.feature_list].copy()
+        # 初始均值/方差
+        self.feature_mean = feature_df.mean().values.astype(np.float32)
+        self.feature_std = feature_df.std(ddof=0).replace(0, 1.0).values.astype(np.float32)
+        
+        if self.outlier_method == 'quantile':
+            q_low = feature_df.quantile(self.outlier_quantile_low)
+            q_high = feature_df.quantile(self.outlier_quantile_high)
+            print(f"Applying quantile clipping to features: low={self.outlier_quantile_low}, high={self.outlier_quantile_high}")
+            feature_df = feature_df.clip(lower=q_low, upper=q_high, axis=1)
+        elif self.outlier_method == 'zscore':
+            print(f"Applying z-score clipping to features: threshold={self.outlier_zscore_threshold}")
+            mean = feature_df.mean()
+            std = feature_df.std(ddof=0).replace(0, 1.0)
+            z = (feature_df - mean) / std
+            z = z.clip(lower=-self.outlier_zscore_threshold, upper=self.outlier_zscore_threshold)
+            feature_df = z * std + mean
+        
+        # 回写处理后的特征列，并更新最终均值/方差用于 dataset 级归一化
+        self.data[self.feature_list] = feature_df
+        feature_df_final = self.data[self.feature_list]
+        self.feature_mean = feature_df_final.mean().values.astype(np.float32)
+        self.feature_std = feature_df_final.std(ddof=0).replace(0, 1.0).values.astype(np.float32)
         
         print(f"Original data time range: {self.timestamps.min()} to {self.timestamps.max()}")
-        print(f"Original data total length: {len(df)} records")
+        print(f"Original data total length (after dedup): {len(df)} records")
     
     def _split_data_by_time(self):
         total_length = len(self.data)
@@ -122,8 +179,13 @@ class CustomKlineDataset(Dataset):
         x = window_data[self.feature_list].values.astype(np.float32)
         x_stamp = window_data[self.time_feature_list].values.astype(np.float32)
         
-        x_mean, x_std = np.mean(x, axis=0), np.std(x, axis=0)
-        x = (x - x_mean) / (x_std + 1e-5)
+        # 归一化：支持按窗口或按整个数据集统计量
+        if self.normalization == 'dataset' and hasattr(self, 'feature_mean') and hasattr(self, 'feature_std'):
+            x = (x - self.feature_mean) / (self.feature_std + 1e-5)
+        else:
+            x_mean, x_std = np.mean(x, axis=0), np.std(x, axis=0)
+            x_std = np.where(x_std == 0, 1.0, x_std)
+            x = (x - x_mean) / (x_std + 1e-5)
         x = np.clip(x, -self.clip, self.clip)
         
         x_tensor = torch.from_numpy(x)
@@ -191,7 +253,13 @@ def create_dataloaders(config):
         seed=config.seed,
         train_ratio=config.train_ratio,
         val_ratio=config.val_ratio,
-        test_ratio=config.test_ratio
+        test_ratio=config.test_ratio,
+        normalization=getattr(config, 'normalization', 'window'),
+        missing_strategy=getattr(config, 'missing_strategy', 'ffill'),
+        outlier_method=getattr(config, 'outlier_method', 'none'),
+        outlier_quantile_low=getattr(config, 'outlier_quantile_low', 0.001),
+        outlier_quantile_high=getattr(config, 'outlier_quantile_high', 0.999),
+        outlier_zscore_threshold=getattr(config, 'outlier_zscore_threshold', 5.0),
     )
     
     val_dataset = CustomKlineDataset(
@@ -203,7 +271,13 @@ def create_dataloaders(config):
         seed=config.seed + 1,
         train_ratio=config.train_ratio,
         val_ratio=config.val_ratio,
-        test_ratio=config.test_ratio
+        test_ratio=config.test_ratio,
+        normalization=getattr(config, 'normalization', 'window'),
+        missing_strategy=getattr(config, 'missing_strategy', 'ffill'),
+        outlier_method=getattr(config, 'outlier_method', 'none'),
+        outlier_quantile_low=getattr(config, 'outlier_quantile_low', 0.001),
+        outlier_quantile_high=getattr(config, 'outlier_quantile_high', 0.999),
+        outlier_zscore_threshold=getattr(config, 'outlier_zscore_threshold', 5.0),
     )
     
     use_ddp = dist.is_available() and dist.is_initialized()

@@ -1,0 +1,68 @@
+# Kronos BTC/USDT 1h 微调配置（激进版）
+
+data:
+  # TODO: 请将此路径修改为你本地的 BTC/USDT 1h K线 CSV
+  data_path: "/path/to/your/BTCUSDT_1h.csv"
+
+  # 更长历史窗口 + 相同预测窗，偏向捕捉中长期结构
+  lookback_window: 768
+  predict_window: 48
+  max_context: 768
+
+  clip: 6.0
+  train_ratio: 0.9
+  val_ratio: 0.1
+  test_ratio: 0.0
+
+  normalization: "dataset"
+  missing_strategy: "ffill"
+
+  # 异常值：使用 z-score 裁剪，保留更多尾部信息
+  outlier_method: "zscore"
+  outlier_zscore_threshold: 4.0
+
+training:
+  # 轮数略多，学习率略高，用于探索更强表达
+  tokenizer_epochs: 25
+  basemodel_epochs: 25
+
+  batch_size: 48
+  log_interval: 50
+  num_workers: 6
+  seed: 123
+
+  tokenizer_learning_rate: 0.0003
+  predictor_learning_rate: 0.00002
+
+  adam_beta1: 0.9
+  adam_beta2: 0.95
+  adam_weight_decay: 0.05
+
+  accumulation_steps: 1
+
+model_paths:
+  pretrained_tokenizer: "/path/to/your/pretrained/Kronos-Tokenizer-base"
+  pretrained_predictor: "/path/to/your/pretrained/Kronos-base"
+
+  exp_name: "BTCUSDT_1h_aggressive"
+  base_path: "/path/to/your/Kronos/finetune_csv/finetuned"
+
+  base_save_path: ""
+  finetuned_tokenizer: ""
+
+  tokenizer_save_name: "tokenizer"
+  basemodel_save_name: "basemodel"
+
+experiment:
+  name: "kronos_btcusdt_1h_aggressive"
+  description: "BTC/USDT 1h, aggressive config with longer lookback and z-score clipping"
+  use_comet: false
+
+  train_tokenizer: true
+  train_basemodel: true
+  skip_existing: false
+
+device:
+  use_cuda: true
+  device_id: 0
+

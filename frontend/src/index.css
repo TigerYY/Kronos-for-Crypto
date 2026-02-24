@@ -1,0 +1,17 @@
+:root {
+  font-family: system-ui, "Segoe UI", Inter, sans-serif;
+  line-height: 1.5;
+  color: #e6f1ff;
+  background-color: #050816;
+  font-synthesis: none;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+#root {
+  min-height: 100vh;
+}

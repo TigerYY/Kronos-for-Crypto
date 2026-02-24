@@ -11,6 +11,7 @@ Kronos Crypto Dashboard（升级版）
 """
 
 import streamlit as st
+import streamlit.components.v1 as components
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
@@ -19,6 +20,7 @@ import os
 import sys
 import time
 import json
+from pathlib import Path
 try:
     import torch
     TORCH_AVAILABLE = True
@@ -38,6 +40,17 @@ st.set_page_config(
     layout="wide",
     initial_sidebar_state="expanded",
 )
+
+
+# ────────────────────────────────────────────────────────
+# 视图路由：Dashboard / Kronos 文档
+# ────────────────────────────────────────────────────────
+try:
+    _query_params = st.experimental_get_query_params()
+except Exception:
+    _query_params = {}
+
+current_view = (_query_params.get("view") or ["dashboard"])[0]
 
 # ────────────────────────────────────────────────────────
 # 全局 CSS
@@ -136,6 +149,15 @@ def load_trade_log():
                                   'amount', 'balance', 'portfolio_value', 'reason'])
 
 
+def load_kronos_doc_html() -> str:
+    """加载 Kronos 多时间框架说明 HTML，用于在 Dashboard 中嵌入展示"""
+    doc_path = Path(__file__).parent / "docs" / "kronos_multi_timeframe.html"
+    try:
+        return doc_path.read_text(encoding="utf-8")
+    except Exception:
+        return "<div style='color:#ff6b6b'>本地文档 docs/kronos_multi_timeframe.html 未找到，请确认文件已同步到仓库。</div>"
+
+
 def make_candle_chart(df: pd.DataFrame, pred_df=None, symbol="", timeframe="") -> go.Figure:
     """创建 K 线图 + 预测线"""
     # 转为上海时区显示
@@ -213,6 +235,8 @@ def make_candle_chart(df: pd.DataFrame, pred_df=None, symbol="", timeframe="") -
 # ────────────────────────────────────────────────────────
 with st.sidebar:
     st.markdown("## 🪐 Kronos Trading")
+    st.caption("Kronos 多时间框架预测 · 实时监控 & 说明")
+
     st.divider()
 
     # 组合摘要（始终显示）
@@ -220,6 +244,21 @@ with st.sidebar:
     st.markdown("**💼 组合概览**")
     st.metric("可用余额", f"${state['balance']:,.2f}")
     st.caption(f"最后更新: {state.get('last_update', '—')[:19]}")
+    # 文档页面链接：用普通 HTML 放在侧边栏（避免 iframe 内链接无法点击）
+    # 相对路径 ?view=doc 在当前页 / 新标签页都会正确解析
+    st.markdown(
+        '<a href="?view=doc" target="_blank" rel="noopener noreferrer" '
+        'style="display:inline-block;margin-top:8px;color:#4dd0e1;text-decoration:none;">'
+        '📖 打开 Kronos 多时间框架说明（新标签页）'
+        '</a>',
+        unsafe_allow_html=True,
+    )
+
+
+if current_view == "doc":
+    html = load_kronos_doc_html()
+    components.html(html, height=1000, scrolling=True)
+    st.stop()
 
 
 # ════════════════════════════════════════════════════════

@@ -1,0 +1,39 @@
+.signal-card {
+  padding: 16px;
+  border-radius: 10px;
+  text-align: center;
+  border: 1px solid;
+}
+
+.signal-buy {
+  background: #0d2414;
+  border-color: #00ff88;
+}
+
+.signal-sell {
+  background: #2e0d0d;
+  border-color: #ff4757;
+}
+
+.signal-hold {
+  background: #1a1a2e;
+  border-color: #ffa502;
+}
+
+.signal-label {
+  color: inherit;
+  font-size: 1.5rem;
+  font-weight: 800;
+}
+
+.signal-buy .signal-label {
+  color: #00ff88;
+}
+
+.signal-sell .signal-label {
+  color: #ff4757;
+}
+
+.signal-hold .signal-label {
+  color: #ffa502;
+}

@@ -121,7 +121,13 @@ class Backtester:
         )
 
         # 加载 Kronos 模型
-        print(f"[Backtester] 加载模型 {model_name} ...")
+        # 允许通过环境变量覆盖模型路径（支持本地微调模型目录）
+        env_model = os.getenv("KRONOS_BACKTEST_MODEL_ID")
+        env_tokenizer = os.getenv("KRONOS_BACKTEST_TOKENIZER_ID")
+        resolved_model_name = env_model or model_name
+        resolved_tokenizer_name = env_tokenizer or tokenizer_name
+
+        print(f"[Backtester] 加载模型 {resolved_model_name} ...")
         import torch
         if device == 'auto':
             if torch.cuda.is_available():
@@ -132,8 +138,8 @@ class Backtester:
                 device = 'cpu'
         self.device = device
 
-        self.tokenizer = KronosTokenizer.from_pretrained(tokenizer_name)
-        self.model = Kronos.from_pretrained(model_name)
+        self.tokenizer = KronosTokenizer.from_pretrained(resolved_tokenizer_name)
+        self.model = Kronos.from_pretrained(resolved_model_name)
         self.predictor = KronosPredictor(
             self.model, self.tokenizer,
             device=self.device,

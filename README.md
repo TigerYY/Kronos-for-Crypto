@@ -36,6 +36,8 @@
 | 🧠 **策略模块** | `trading/strategy.py` | 多时框加权信号融合（5m/15m/1h/4h/1d）|
 | 🛡️ **风险管理** | `trading/risk_manager.py` | 止损 / 止盈 / 仓位控制 |
 | 🔮 **预测 WebUI** | `webui/app.py` | Flask 深色主题 K 线预测界面 |
+| 🔌 **统一 API** | `backend/main.py` | FastAPI：组合 / 数据 / 预测 / 回测 / 配置 |
+| 🌐 **新前端** | `frontend/` | React + TypeScript + Vite 单页应用（推荐）|
 
 ---
 
@@ -57,18 +59,26 @@ cd Kronos-for-Crypto
 # 2. 授予执行权限（首次）
 chmod +x start.sh
 
-# 3. 启动主页面
-./start.sh
+# 3. 启动（任选一种）
+./start.sh        # Streamlit 传统主页面（默认）
+./start.sh prod   # 推荐：FastAPI + React 单页应用（同端口）
+./start.sh dev    # 开发：FastAPI(8000) + 前端 dev(5173)
+./start.sh api    # 仅 FastAPI 后端（端口 8000）
+./start.sh webui  # Flask K 线预测界面（7070）
 ```
 
-> 💡 首次运行自动创建 `.venv` 虚拟环境并安装全部依赖（含 PyTorch CPU 版），约需 **3~8 分钟**。
+> 💡 首次运行自动创建 `.venv` 虚拟环境并安装全部依赖（含 PyTorch CPU 版），约需 **3~8 分钟**。  
+> 使用 `./start.sh prod` 或 `./start.sh dev` 前需安装前端依赖：`cd frontend && npm install`。
 
 启动后访问：
 
-| 界面 | 地址 | 说明 |
+| 模式 | 地址 | 说明 |
 |------|------|------|
-| 🪐 **主页面** | <http://localhost:8502> | Streamlit 交易看板 |
-| 🔮 **WebUI** | <http://localhost:7070> | Flask K 线预测（`./start.sh webui`）|
+| 🪐 **Streamlit（默认）** | <http://localhost:8502> | `./start.sh` 传统交易看板 |
+| 🌐 **FastAPI + React（推荐）** | <http://localhost:8000> | `./start.sh prod` 单页应用 + API |
+| 🔌 **开发：前端** | <http://localhost:5173> | `./start.sh dev` 时前端 dev server |
+| 🔌 **开发：API** | <http://localhost:8000/docs> | API 文档 |
+| 🔮 **WebUI** | <http://localhost:7070> | `./start.sh webui` Flask K 线预测 |
 
 ### 手动安装
 
@@ -191,6 +201,16 @@ Kronos-for-Crypto/
 ├── 🪐 crypto_dashboard.py       # Streamlit 多页面交易看板（主页面）
 ├── 🤖 crypto_simulator.py       # 交易模拟器（实盘模拟循环）
 ├── � requirements.txt          # 依赖清单
+│
+├── backend/                     # FastAPI 统一后端（新架构）
+│   ├── main.py                  # FastAPI、CORS、静态资源
+│   ├── routers/                 # portfolio, data, predict, config, backtest
+│   └── services/                # 薄封装调用 simulator / trading / backtest
+│
+├── frontend/                    # React + TypeScript + Vite 单页应用（新架构）
+│   ├── src/pages/               # Monitor, Backtest, Config, Doc
+│   ├── src/api/                 # API 客户端
+│   └── public/doc.html          # 多时间框架说明
 │
 ├── trading/                     # 交易系统核心
 │   ├── __init__.py

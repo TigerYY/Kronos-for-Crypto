@@ -54,6 +54,15 @@ AVAILABLE_MODELS = {
         'context_length': 512,
         'params': '102.3M',
         'description': 'Base model, provides better prediction quality'
+    },
+    # custom fine-tuned model entry; paths can be configured via environment variables
+    'kronos-custom': {
+        'name': 'Kronos-custom',
+        'model_id': os.getenv('KRONOS_CUSTOM_MODEL_DIR', '/path/to/your/finetuned/basemodel/best_model'),
+        'tokenizer_id': os.getenv('KRONOS_CUSTOM_TOKENIZER_DIR', '/path/to/your/finetuned/tokenizer/best_model'),
+        'context_length': 512,
+        'params': 'custom',
+        'description': 'Custom fine-tuned Kronos model (set KRONOS_CUSTOM_MODEL_DIR & KRONOS_CUSTOM_TOKENIZER_DIR)'
     }
 }
 

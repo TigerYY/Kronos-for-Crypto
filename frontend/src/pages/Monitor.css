@@ -1,0 +1,165 @@
+.monitor {
+  max-width: 1200px;
+}
+
+.main-header {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+  padding: 20px 24px;
+  border-radius: 12px;
+  margin-bottom: 24px;
+}
+
+.main-header h1 {
+  color: #e94560;
+  margin: 0;
+  font-size: 1.8em;
+}
+
+.main-header p {
+  color: #a8b2d8;
+  margin: 4px 0 0;
+  font-size: 0.9em;
+}
+
+.controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: #a8b2d8;
+}
+
+.controls select {
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid #2d3561;
+  background: #0d1117;
+  color: #e6f1ff;
+  min-width: 140px;
+}
+
+.btn-primary {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  background: #f39c12;
+  color: #0d1117;
+  font-weight: 600;
+  cursor: pointer;
+  margin-top: 18px;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #e89b1a;
+}
+
+.btn-primary:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.error-banner {
+  background: #2e0d0d;
+  border: 1px solid #ff4757;
+  color: #ff6b6b;
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.metrics-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.metric-slot {
+  min-width: 0;
+}
+
+.section-title {
+  color: #ccd6f6;
+  font-size: 1.1em;
+  font-weight: 600;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #2d3561;
+  margin: 24px 0 16px;
+}
+
+.chart-section {
+  margin-bottom: 24px;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.tf-cards {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.tf-card {
+  background: #1a1a2e;
+  border: 1px solid #2d3561;
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.signal-confidence {
+  margin: 8px 0 4px;
+  font-size: 0.9rem;
+}
+
+.confidence-bar {
+  width: 100%;
+  max-width: 400px;
+  height: 8px;
+  margin-bottom: 8px;
+}
+
+.signal-reasons {
+  font-size: 0.85rem;
+  color: #8892b0;
+}
+
+.trades-table-wrap {
+  overflow-x: auto;
+  border-radius: 10px;
+  border: 1px solid #2d3561;
+}
+
+.trades-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.trades-table th,
+.trades-table td {
+  padding: 10px 12px;
+  text-align: left;
+  border-bottom: 1px solid #1e2a3a;
+}
+
+.trades-table th {
+  background: #1a1a2e;
+  color: #8892b0;
+  font-weight: 600;
+}
+
+.trades-table tbody tr:hover {
+  background: rgba(26, 26, 46, 0.8);
+}
+
+.muted {
+  color: #6b7280;
+}
