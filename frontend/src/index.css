@@ -1,8 +1,15 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", system-ui, sans-serif;
+  --color-slate-950: #050816;
+  --color-neon-cyan: #00f0ff;
+  --color-neon-purple: #8a2be2;
+}
+
 :root {
-  font-family: system-ui, "Segoe UI", Inter, sans-serif;
-  line-height: 1.5;
   color: #e6f1ff;
-  background-color: #050816;
+  background-color: var(--color-slate-950);
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
 }
@@ -14,4 +21,11 @@ body {
 
 #root {
   min-height: 100vh;
+}
+
+/* Global utility classes for glassmorphism */
+@layer utilities {
+  .glass-panel {
+    @apply bg-black/40 backdrop-blur-md border border-white/10 shadow-xl;
+  }
 }

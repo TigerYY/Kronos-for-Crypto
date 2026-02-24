@@ -15,14 +15,17 @@ import os
 import sys
 import time
 import json
-import torch
 import pandas as pd
 from datetime import datetime
 
-# 将项目根目录加入路径
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import torch
+    from model import Kronos, KronosTokenizer, KronosPredictor
+    MODEL_AVAILABLE = True
+except ImportError:
+    MODEL_AVAILABLE = False
+    print("[Simulator] Warning: PyTorch or Kronos model cannot be imported, will use simulated functionality")
 
-from model import Kronos, KronosTokenizer, KronosPredictor
 from trading.strategy import MultiTimeframeStrategy
 from trading.risk_manager import RiskManager
 from trading.data_fetcher import DataFetcher
@@ -156,31 +159,34 @@ class CryptoSimulator:
         stop_loss_pct: float = 0.03,
         take_profit_pct: float = 0.08,
     ):
-        # 自动选择最优设备
-        if torch.cuda.is_available():
-            self.device = 'cuda'
-        elif torch.backends.mps.is_available():
-            self.device = 'mps'
+        if MODEL_AVAILABLE:
+            if torch.cuda.is_available():
+                self.device = 'cuda'
+            elif torch.backends.mps.is_available():
+                self.device = 'mps'
+            else:
+                self.device = 'cpu'
+            print(f"[Simulator] 使用设备: {self.device}")
+
+            # 允许通过环境变量或参数覆盖模型路径（支持本地微调模型目录）
+            env_model = os.getenv("KRONOS_MODEL_ID")
+            env_tokenizer = os.getenv("KRONOS_TOKENIZER_ID")
+            resolved_model_name = model_name or env_model or "NeoQuasar/Kronos-small"
+            resolved_tokenizer_name = tokenizer_name or env_tokenizer or "NeoQuasar/Kronos-Tokenizer-base"
+
+            print(f"[Simulator] 加载模型: {resolved_model_name}")
+            print(f"[Simulator] 使用 tokenizer: {resolved_tokenizer_name}")
+            self.tokenizer = KronosTokenizer.from_pretrained(resolved_tokenizer_name)
+            self.model_obj = Kronos.from_pretrained(resolved_model_name)
+            self.predictor = KronosPredictor(
+                self.model_obj, self.tokenizer,
+                device=self.device,
+                max_context=LOOKBACK,
+            )
+            print("[Simulator] 模型加载完成！")
         else:
             self.device = 'cpu'
-        print(f"[Simulator] 使用设备: {self.device}")
-
-        # 允许通过环境变量或参数覆盖模型路径（支持本地微调模型目录）
-        env_model = os.getenv("KRONOS_MODEL_ID")
-        env_tokenizer = os.getenv("KRONOS_TOKENIZER_ID")
-        resolved_model_name = model_name or env_model or "NeoQuasar/Kronos-small"
-        resolved_tokenizer_name = tokenizer_name or env_tokenizer or "NeoQuasar/Kronos-Tokenizer-base"
-
-        print(f"[Simulator] 加载模型: {resolved_model_name}")
-        print(f"[Simulator] 使用 tokenizer: {resolved_tokenizer_name}")
-        self.tokenizer = KronosTokenizer.from_pretrained(resolved_tokenizer_name)
-        self.model_obj = Kronos.from_pretrained(resolved_model_name)
-        self.predictor = KronosPredictor(
-            self.model_obj, self.tokenizer,
-            device=self.device,
-            max_context=LOOKBACK,
-        )
-        print("[Simulator] 模型加载完成！")
+            print("[Simulator] 当前以无模型轻量模式运行，预测功能将被降级为模拟值")
 
         # 初始化子组件
         self.data_fetcher = DataFetcher(exchange_id='binance')
@@ -200,6 +206,25 @@ class CryptoSimulator:
         x_ts = df['timestamps'].reset_index(drop=True)
         diff = x_ts.iloc[-1] - x_ts.iloc[-2]
         y_ts = pd.Series([x_ts.iloc[-1] + diff * (i + 1) for i in range(PRED_LEN)])
+
+        if not MODEL_AVAILABLE or not hasattr(self, 'predictor'):
+            # Vercel fallback/mock logic
+            # Produce mock dataframe containing previous 'close' with slight random noise
+            mock_data = []
+            last_close = float(df['close'].iloc[-1])
+            import random
+            for i in range(PRED_LEN):
+                variation = last_close * random.uniform(-0.02, 0.02)
+                mock_close = last_close + variation
+                mock_data.append({
+                    'open': mock_close,
+                    'high': mock_close * 1.01,
+                    'low': mock_close * 0.99,
+                    'close': mock_close,
+                    'volume': 0,
+                    'amount': 0
+                })
+            return pd.DataFrame(mock_data)
 
         return self.predictor.predict(
             df=x_df,

@@ -62,6 +62,13 @@ if os.path.isdir(FRONTEND_DIST):
         if full_path.startswith("api/"):
             from fastapi import HTTPException
             raise HTTPException(status_code=404, detail="Not found")
+            
+        # 优先判断是否是根目录下的真实静态文件 (如 doc.html, vite.svg)
+        file_path = os.path.join(FRONTEND_DIST, full_path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+            
+        # 否则回退给 React Router 返回 index.html
         index_path = os.path.join(FRONTEND_DIST, "index.html")
         if os.path.isfile(index_path):
             return FileResponse(index_path)

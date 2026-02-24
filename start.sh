@@ -1,11 +1,9 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────
 #  Kronos 项目启动脚本
-#  用法：./start.sh           → 启动 Streamlit 主页面（传统入口）
-#        ./start.sh webui     → 启动 Flask K线预测界面
+#  用法：./start.sh           → 启动 FastAPI + React 全栈应用（默认）
 #        ./start.sh api       → 仅启动 FastAPI 后端（端口 8000）
 #        ./start.sh dev       → 启动 FastAPI + 前端 dev（API:8000，前端:5173）
-#        ./start.sh prod      → 构建前端并启动 FastAPI（同端口提供 API + 前端）
 # ─────────────────────────────────────────────────────────
 
 set -e
@@ -24,18 +22,9 @@ if [ ! -f "$VENV/python3" ]; then
 fi
 
 # ── 根据参数决定启动哪个服务 ──────────────────────────────
-MODE="${1:-main}"
+MODE="${1:-prod}"
 
-if [ "$MODE" = "webui" ]; then
-    echo ""
-    echo "🌐 启动 Flask K线预测界面..."
-    echo "   访问地址：http://localhost:7070"
-    echo "   按 Ctrl+C 停止"
-    echo ""
-    cd "$SCRIPT_DIR/webui"
-    exec "$VENV/python3" app.py
-
-elif [ "$MODE" = "api" ]; then
+if [ "$MODE" = "api" ]; then
     echo ""
     echo "🔌 启动 FastAPI 后端（仅 API）..."
     echo "   访问地址：http://localhost:8000"
@@ -61,28 +50,15 @@ elif [ "$MODE" = "dev" ]; then
     trap "kill $UVID_PID $FEPID 2>/dev/null; exit" INT TERM
     wait
 
-elif [ "$MODE" = "prod" ]; then
+else
     echo ""
     echo "📦 构建前端..."
     (cd "$SCRIPT_DIR/frontend" && npm run build)
     echo ""
-    echo "🔌 启动 FastAPI（API + 前端，端口 8000）..."
+    echo "🔌 启动 Kronos 全栈应用 (FastAPI + React)..."
     echo "   访问地址：http://localhost:8000"
     echo "   按 Ctrl+C 停止"
     echo ""
     cd "$SCRIPT_DIR"
     exec "$VENV/python3" -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
-
-else
-    echo ""
-    echo "🪐 启动 Kronos Crypto Dashboard（Streamlit 传统入口）..."
-    echo "   访问地址：http://localhost:8502"
-    echo "   推荐新架构：./start.sh prod 或 ./start.sh dev"
-    echo "   按 Ctrl+C 停止"
-    echo ""
-    cd "$SCRIPT_DIR"
-    exec "$VENV/streamlit" run crypto_dashboard.py \
-        --server.port 8502 \
-        --server.headless true \
-        --browser.gatherUsageStats false
 fi

@@ -1,8 +1,8 @@
 # Vercel 部署依赖（轻量版，不含 PyTorch）
 # PyTorch 体积约 1~2GB，超出 Vercel 函数 250MB 限制
 # 若需完整功能（模型预测），请在本地或 GPU 服务器运行
-flask==3.1.3
-flask-cors==4.0.0
+fastapi==0.110.0
+uvicorn==0.29.0
 pandas==2.2.2
 numpy==2.4.2
-plotly==6.5.2
+python-multipart==0.0.9

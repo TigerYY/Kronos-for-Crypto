@@ -29,15 +29,13 @@
 
 | 模块 | 文件 | 功能 |
 |------|------|------|
-| 🪐 **交易看板** | `crypto_dashboard.py` | Streamlit 多页面主界面 |
 | 🤖 **交易模拟器** | `crypto_simulator.py` | 实盘模拟：信号生成 + 自动买卖 + 持仓管理 |
 | 🔬 **回测引擎** | `backtest/backtester.py` | 历史回测：滑动窗口 + 绩效评估 |
 | 📡 **数据获取** | `trading/data_fetcher.py` | ccxt（Binance）+ yfinance（ES=F 期货）|
 | 🧠 **策略模块** | `trading/strategy.py` | 多时框加权信号融合（5m/15m/1h/4h/1d）|
 | 🛡️ **风险管理** | `trading/risk_manager.py` | 止损 / 止盈 / 仓位控制 |
-| 🔮 **预测 WebUI** | `webui/app.py` | Flask 深色主题 K 线预测界面 |
-| 🔌 **统一 API** | `backend/main.py` | FastAPI：组合 / 数据 / 预测 / 回测 / 配置 |
-| 🌐 **新前端** | `frontend/` | React + TypeScript + Vite 单页应用（推荐）|
+| 🔌 **统一后端 API** | `backend/main.py` | FastAPI：组合 / 数据 / 预测 / 回测 / 配置 |
+| 🌐 **交互前端** | `frontend/` | React + TypeScript + Vite 单页应用 |
 
 ---
 
@@ -60,25 +58,21 @@ cd Kronos-for-Crypto
 chmod +x start.sh
 
 # 3. 启动（任选一种）
-./start.sh        # Streamlit 传统主页面（默认）
-./start.sh prod   # 推荐：FastAPI + React 单页应用（同端口）
-./start.sh dev    # 开发：FastAPI(8000) + 前端 dev(5173)
-./start.sh api    # 仅 FastAPI 后端（端口 8000）
-./start.sh webui  # Flask K 线预测界面（7070）
+./start.sh        # 默认：构建前端并启动 FastAPI 全栈应用（同端口）
+./start.sh dev    # 开发：启动 FastAPI(8000) 和前端 dev(5173) 双服务
+./start.sh api    # 纯享：仅启动 FastAPI 后端 API（端口 8000）
 ```
 
 > 💡 首次运行自动创建 `.venv` 虚拟环境并安装全部依赖（含 PyTorch CPU 版），约需 **3~8 分钟**。  
-> 使用 `./start.sh prod` 或 `./start.sh dev` 前需安装前端依赖：`cd frontend && npm install`。
+> 使用默认的 全栈模式 或 `dev` 模式前请先确保本机环境能够正常支持 `npm install`。
 
 启动后访问：
 
 | 模式 | 地址 | 说明 |
 |------|------|------|
-| 🪐 **Streamlit（默认）** | <http://localhost:8502> | `./start.sh` 传统交易看板 |
-| 🌐 **FastAPI + React（推荐）** | <http://localhost:8000> | `./start.sh prod` 单页应用 + API |
-| 🔌 **开发：前端** | <http://localhost:5173> | `./start.sh dev` 时前端 dev server |
-| 🔌 **开发：API** | <http://localhost:8000/docs> | API 文档 |
-| 🔮 **WebUI** | <http://localhost:7070> | `./start.sh webui` Flask K 线预测 |
+| 🌐 **全栈应用（默认）** | <http://localhost:8000> | 这是您监控和策略操作的主界面 |
+| 🔌 **开发：前端** | <http://localhost:5173> | `./start.sh dev` 时前端开发的热更新端口 |
+| 🔌 **开发：API 文档** | <http://localhost:8000/docs> | 自动生成的 OpenAPI 交互文档 |
 
 ### 手动安装
 
@@ -93,8 +87,8 @@ pip install torch --index-url https://download.pytorch.org/whl/cpu
 # 安装其余依赖
 pip install -r requirements.txt
 
-# 启动主页面
-streamlit run crypto_dashboard.py --server.port 8502
+# 启动后端程序
+uvicorn backend.main:app --host 0.0.0.0 --port 8000
 ```
 
 #### Apple Silicon（MPS 加速）
@@ -109,14 +103,14 @@ pip install -r requirements.txt
 
 ## ☁️ 一键部署 (Vercel)
 
-本项目中的 **WebUI (Flask)** 完全适配 Vercel Serverless 环境，支持一键零配置免费部署。
+本项目中的 **前后端分离架构** 完全适配 Vercel Serverless 环境，并实现了动态引入，支持一键零配置免费部署展示版本。
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2FTigerYY%2FKronos-for-Crypto)
 
 > **⚠️ Vercel 部署说明及限制**
 >
-> - **体积限制**：Vercel Serverless Function 免费版最大支持 250MB，因此无法打包庞大的 PyTorch 及 Kronos 模型。
-> - **功能降级**：Vercel 部署版为**轻量级展示版**。你可以正常访问该项目的 WebUI 及交互式 K 线图表，但**无法执行实时预测**，仅可查看预置的数据模拟效果。
+> - **体积限制**：Vercel Serverless Function 免费版最大支持 250MB，因此无法打包庞大的 PyTorch 及 Kronos 模型。我们通过异常捕获软引入的方式解决了这一报错限制。
+> - **功能降级**：Vercel 部署版为**展示轻量版**。你可以正常访问该项目的 UI 及历史流数据，但**无法执行实时推断预测**，因为底层模型未加载。
 > - **完整体验**：如需体验实际的加密货币自动交易、真实回测及 AI 预测推断，请务必在本地或独立 GPU 机器上部署运行。
 
 ---
@@ -197,22 +191,24 @@ lookback: 400 根 K 线
 ```
 Kronos-for-Crypto/
 │
-├── � start.sh                  # 一键启动脚本（主入口）
-├── 🪐 crypto_dashboard.py       # Streamlit 多页面交易看板（主页面）
+├── 🚀 start.sh                  # 一键启动脚本（主入口）
 ├── 🤖 crypto_simulator.py       # 交易模拟器（实盘模拟循环）
-├── � requirements.txt          # 依赖清单
+├── 📄 requirements.txt          # 主环境依赖清单
 │
-├── backend/                     # FastAPI 统一后端（新架构）
-│   ├── main.py                  # FastAPI、CORS、静态资源
+├── api/                         # Vercel Serverless 专属配置
+│   ├── index.py                 # Vercel Function 入口（桥接至 backend）
+│   └── requirements.txt         # Vercel 专用轻量依赖
+│
+├── backend/                     # FastAPI 统一后端（核心 API）
+│   ├── main.py                  # API 路由主入口、SPA 静态文件伺服
 │   ├── routers/                 # portfolio, data, predict, config, backtest
-│   └── services/                # 薄封装调用 simulator / trading / backtest
+│   └── services/                # 薄服务封装层（连通引擎与 API）
 │
-├── frontend/                    # React + TypeScript + Vite 单页应用（新架构）
+├── frontend/                    # React + TypeScript + Vite 前端
 │   ├── src/pages/               # Monitor, Backtest, Config, Doc
-│   ├── src/api/                 # API 客户端
-│   └── public/doc.html          # 多时间框架说明
+│   └── src/api/                 # API client (Axios/Fetch)
 │
-├── trading/                     # 交易系统核心
+├── trading/                     # 交易系统核心引擎
 │   ├── __init__.py
 │   ├── data_fetcher.py          # 多源数据获取（ccxt + yfinance + 缓存）
 │   ├── strategy.py              # MultiTimeframeStrategy 多时框信号融合
@@ -222,11 +218,6 @@ Kronos-for-Crypto/
 │   ├── __init__.py
 │   ├── backtester.py            # Backtester（滑动窗口历史回测）
 │   └── metrics.py               # 绩效指标计算（夏普、MDD、胜率等）
-│
-├── webui/                       # Flask K 线预测界面（辅助）
-│   ├── app.py                   # Flask 后端 + REST API
-│   ├── start.sh                 # WebUI 独立启动脚本
-│   └── templates/index.html     # 深色主题前端（Plotly 交互图表）
 │
 ├── model/                       # Kronos 模型定义（上游）
 ├── data/                        # K 线数据（.csv / .feather）
@@ -336,18 +327,17 @@ max_exposure    = 0.80   # 加密货币持仓不超过总资产的 80%
 
 ---
 
-## 🔌 REST API（WebUI）
+## 🔌 REST API（FastAPI）
 
-WebUI（`http://localhost:7070`）提供以下 API：
+统一后端 API 分为多个模块路径，全量文档启动后可在 `http://localhost:8000/docs` 交互访问。
 
-| 方法 | 端点 | 说明 |
+| 模块 | 核心端点 | 说明 |
 |------|------|------|
-| `GET` | `/api/data-files` | 获取可用数据文件列表 |
-| `POST` | `/api/load-data` | 加载数据文件 |
-| `GET` | `/api/available-models` | 获取可用模型列表 |
-| `GET` | `/api/model-status` | 获取当前模型状态 |
-| `POST` | `/api/load-model` | 加载指定 Kronos 模型 |
-| `POST` | `/api/predict` | 执行 K 线预测 |
+| `Portfolio` | `/api/portfolio` | 获取虚拟持仓状态、交易记录流水等 |
+| `Data` | `/api/data/ohlcv` | 获取实时与缓存的 OHLCV K 线数据 |
+| `Predict` | `/api/predict` | 执行单/多时框的 Kronos 向前预测及融合信号获取 |
+| `Backtest` | `/api/backtest` | 对所选区间数据全自动化地进行历史回测 |
+| `Config` | `/api/config` | 加载或实时覆写风控、阈值及策略配置变量 |
 
 ---
 
@@ -386,6 +376,6 @@ WebUI（`http://localhost:7070`）提供以下 API：
 ---
 
 <div align="center">
-  <sub>🪐 Built with PyTorch · Streamlit · Plotly · ccxt · yfinance</sub><br>
+  <sub>🪐 Built with PyTorch · FastAPI · React · ccxt · yfinance</sub><br>
   <sub>Based on <a href="https://github.com/shiyu-coder/Kronos">Kronos (AAAI 2026)</a></sub>
 </div>
