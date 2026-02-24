@@ -1,105 +1,169 @@
 <div align="center">
   <img src="./figures/logo.png" width="80" alt="Kronos Logo">
-  <h1>Kronos</h1>
-  <p><b>金融 K 线基础模型 · AI 加密货币交易系统</b></p>
-  <p>A Foundation Model for Financial Markets + Full-Stack Crypto Trading Platform</p>
+  <h1>Kronos for Crypto</h1>
+  <p><b>金融 K 线基础模型 × AI 加密货币量化交易系统</b></p>
+  <p><i>A Foundation Model for Financial Markets · Full-Stack Crypto Trading Platform</i></p>
 </div>
 
 <div align="center">
 
-[![Hugging Face](https://img.shields.io/badge/🤗-Hugging_Face-yellow)](https://huggingface.co/NeoQuasar)
-[![Live Demo](https://img.shields.io/badge/🚀-Live_Demo-brightgreen)](https://shiyu-coder.github.io/Kronos-demo/)
-[![Last Commit](https://img.shields.io/github/last-commit/shiyu-coder/Kronos?color=blue)](https://github.com/shiyu-coder/Kronos/graphs/commit-activity)
-[![Stars](https://img.shields.io/github/stars/shiyu-coder/Kronos?color=lightblue)](https://github.com/shiyu-coder/Kronos/stargazers)
-[![License](https://img.shields.io/github/license/shiyu-coder/Kronos?color=green)](./LICENSE)
+[![Hugging Face](https://img.shields.io/badge/🤗-HuggingFace-yellow)](https://huggingface.co/NeoQuasar)
+[![Original Paper](https://img.shields.io/badge/�-arXiv-red)](https://arxiv.org/abs/2508.02739)
+[![AAAI 2026](https://img.shields.io/badge/🏆-AAAI_2026-purple)](https://aaai.org/conference/aaai/aaai-26/)
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue?logo=python)](https://www.python.org/)
 [![PyTorch](https://img.shields.io/badge/PyTorch-2.0%2B-red?logo=pytorch)](https://pytorch.org/)
+[![License](https://img.shields.io/github/license/shiyu-coder/Kronos?color=green)](./LICENSE)
 
 </div>
 
 ---
 
-## ✨ 项目概览
+## 📖 关于本项目
 
-Kronos 是首个面向金融 K 线（OHLCV）数据的**开源基础模型**，在来自全球 45+ 家交易所的数据上预训练，具备强大的 K 线序列理解与预测能力。
+本仓库基于 [Kronos](https://github.com/shiyu-coder/Kronos)（AAAI 2026）—— 首个面向金融 K 线的开源基础模型，在其之上构建了一套**完整的加密货币量化交易工程系统**。
 
-在原始学术模型基础上，本仓库**扩展了一套完整的加密货币量化交易系统**，包含：
+**Kronos 做什么？**  
+将 K 线序列（OHLCV）视为一种「金融语言」，通过在 45+ 全球交易所预训练的 Transformer，实现对未来 K 线走势的自回归预测。
 
-| 模块 | 功能 |
-|------|------|
-| 🪐 **Crypto Dashboard** | Streamlit 多页面交易看板（实时监控 / 回测 / 策略配置）|
-| � **WebUI** | Flask K 线预测界面（深色主题，交互图表）|
-| 🤖 **交易模拟器** | 基于 Kronos 预测的自动信号生成与持仓管理 |
-| � **回测引擎** | 历史数据回测 + 绩效指标（夏普、最大回撤、胜率）|
-| � **数据获取** | ccxt（Binance 等）+ yfinance（ES=F 期货）多源数据 |
+**本仓库扩展了什么？**
+
+| 模块 | 文件 | 功能 |
+|------|------|------|
+| 🪐 **交易看板** | `crypto_dashboard.py` | Streamlit 多页面主界面 |
+| 🤖 **交易模拟器** | `crypto_simulator.py` | 实盘模拟：信号生成 + 自动买卖 + 持仓管理 |
+| 🔬 **回测引擎** | `backtest/backtester.py` | 历史回测：滑动窗口 + 绩效评估 |
+| 📡 **数据获取** | `trading/data_fetcher.py` | ccxt（Binance）+ yfinance（ES=F 期货）|
+| 🧠 **策略模块** | `trading/strategy.py` | 多时框加权信号融合（5m/15m/1h/4h/1d）|
+| 🛡️ **风险管理** | `trading/risk_manager.py` | 止损 / 止盈 / 仓位控制 |
+| 🔮 **预测 WebUI** | `webui/app.py` | Flask 深色主题 K 线预测界面 |
 
 ---
 
 ## 🚀 快速开始
 
-### 1. 克隆仓库
+### 环境要求
+
+- Python 3.10+
+- macOS / Linux（Apple Silicon MPS 加速可选）
+- NVIDIA GPU（CUDA 可选）
+
+### 一键启动（推荐）
 
 ```bash
-git clone https://github.com/shiyu-coder/Kronos.git
-cd Kronos
-```
+# 1. 克隆本仓库
+git clone https://github.com/TigerYY/Kronos-for-Crypto.git
+cd Kronos-for-Crypto
 
-### 2. 一键启动（推荐）
-
-```bash
-# 授予执行权限（首次）
+# 2. 授予执行权限（首次）
 chmod +x start.sh
 
-# 启动主页面（Kronos Crypto Dashboard）
+# 3. 启动主页面
 ./start.sh
 ```
 
-> 首次运行会自动创建虚拟环境并安装所有依赖，约需 3-5 分钟（含 PyTorch 下载）
+> 💡 首次运行自动创建 `.venv` 虚拟环境并安装全部依赖（含 PyTorch CPU 版），约需 **3~8 分钟**。
+
+启动后访问：
 
 | 界面 | 地址 | 说明 |
 |------|------|------|
-| 🪐 主页面 | <http://localhost:8502> | Streamlit 交易看板 |
-| 🔮 WebUI | <http://localhost:7070> | Flask K 线预测界面 |
+| 🪐 **主页面** | <http://localhost:8502> | Streamlit 交易看板 |
+| 🔮 **WebUI** | <http://localhost:7070> | Flask K 线预测（`./start.sh webui`）|
 
-```bash
-# 启动 Flask WebUI（可选）
-./start.sh webui
-```
-
-### 3. 手动安装（可选）
+### 手动安装
 
 ```bash
 # 创建虚拟环境
 python3 -m venv .venv
-source .venv/bin/activate
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
 
-# 安装依赖（PyTorch CPU 版）
+# 安装 PyTorch（CPU 版，Mac/Linux 均可）
 pip install torch --index-url https://download.pytorch.org/whl/cpu
+
+# 安装其余依赖
 pip install -r requirements.txt
 
 # 启动主页面
 streamlit run crypto_dashboard.py --server.port 8502
 ```
 
+#### Apple Silicon（MPS 加速）
+
+```bash
+# M 系列芯片安装完整 PyTorch（含 MPS）
+pip install torch torchvision torchaudio
+pip install -r requirements.txt
+```
+
 ---
 
-## 🖥️ 界面预览
+## 🖥️ 界面功能
 
-### 主页面 — Kronos Crypto Dashboard
+### 📊 实时监控
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│  🪐 Kronos Trading    │  📊 实时监控                    │
-│  ─────────────────    │  ─────────────────────────────  │
-│  ○ 📊 实时监控        │  交易对: BTC/USDT  周期: 1h     │
-│  ○ 🔬 回测分析        │                                 │
-│  ○ ⚙️ 策略配置        │  ┌──────────────────────────┐  │
-│                       │  │   K线图 + Kronos预测线    │  │
-│  💼 组合概览          │  │   成交量柱状图             │  │
-│  余额: $10,000.00     │  └──────────────────────────┘  │
-│                       │                                 │
-│                       │  ▲ BUY  📈 多时框信号详情      │
-└─────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│  当前价格         预测价格         信号          组合总值      │
+│  $95,420.00      $95,838.00     ▲ BUY         $10,248.35    │
+│                  (+0.44%)      （置信 72%）   (+2.48%)       │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  ████ BTC/USDT · 1h — K线图 + Kronos预测线 + 成交量         │
+│  ▲买入点  ▼卖出点                                            │
+│                                                              │
+├──────────────────────────────────────────────────────────────┤
+│   15m: $95,780   1h: $95,838   4h: $96,200   1d: $97,100   │
+│  （多时框信号详情）                   置信度: ██████░░ 72%    │
+└──────────────────────────────────────────────────────────────┘
+```
+
+- 支持交易对：`BTC/USDT`、`ETH/USDT`、`ES=F`（期货）
+- 支持时间周期：`5m / 15m / 1h / 4h / 1d`
+- 自动刷新（60s）模式
+
+### 🔬 回测分析
+
+```bash
+# 参数示例
+交易对:   BTC/USDT
+时间周期: 1h
+时间段:   2024-01-01 ~ 2024-06-01
+初始资金: $10,000
+lookback: 400 根 K 线
+预测长度: 12 根 K 线
+预测步长: 6（每 6 根做一次预测）
+```
+
+输出指标：
+
+| 指标 | 说明 |
+|------|------|
+| 总收益率 | 回测区间策略总盈亏 |
+| 年化收益率 | 折合年化的收益率 |
+| 夏普比率 | 风险调整后收益（>1 优，>2 卓越）|
+| 最大回撤 | 历史最大亏损幅度 |
+| 胜率 | 盈利交易占所有交易的比例 |
+| 交易次数 | 买卖操作总次数 |
+
+### ⚙️ 策略配置
+
+所有参数可在 Dashboard 中实时调整并持久化：
+
+```
+信号策略
+  ├─ 买卖信号阈值    0.5%   （超过此涨跌幅才触发信号）
+  └─ 强信号阈值      1.5%   （高置信度信号）
+
+多时框权重
+  ├─ 5m  权重 0.20
+  ├─ 15m 权重 0.30
+  └─ 1h  权重 0.50
+
+风险管理
+  ├─ 单次买入比例   15%
+  ├─ 最大仓位上限   80%
+  ├─ 止损比例        3%
+  └─ 止盈比例        8%（触发后卖出 50%）
 ```
 
 ---
@@ -107,113 +171,187 @@ streamlit run crypto_dashboard.py --server.port 8502
 ## 🏗️ 项目结构
 
 ```
-Kronos/
-├── 📄 start.sh                 # ⭐ 一键启动脚本（主入口）
-├── 📄 crypto_dashboard.py      # ⭐ 主页面（Streamlit 交易看板）
-├── 📄 crypto_simulator.py      # 交易模拟器（信号生成 + 持仓管理）
-├── 📄 requirements.txt         # 依赖清单
+Kronos-for-Crypto/
 │
-├── 📁 trading/                 # 交易系统核心模块
-│   ├── data_fetcher.py         # 多源数据获取（ccxt + yfinance）
-│   ├── strategy.py             # 多时框信号策略
-│   └── risk_manager.py         # 风险管理（止损 / 止盈 / 仓位控制）
+├── � start.sh                  # 一键启动脚本（主入口）
+├── 🪐 crypto_dashboard.py       # Streamlit 多页面交易看板（主页面）
+├── 🤖 crypto_simulator.py       # 交易模拟器（实盘模拟循环）
+├── � requirements.txt          # 依赖清单
 │
-├── 📁 backtest/                # 回测引擎
-│   ├── backtester.py           # 历史回测主逻辑
-│   └── metrics.py              # 绩效指标计算（夏普、回撤、胜率等）
+├── trading/                     # 交易系统核心
+│   ├── __init__.py
+│   ├── data_fetcher.py          # 多源数据获取（ccxt + yfinance + 缓存）
+│   ├── strategy.py              # MultiTimeframeStrategy 多时框信号融合
+│   └── risk_manager.py          # RiskManager（止损 / 止盈 / 仓位控制）
 │
-├── 📁 webui/                   # Flask K线预测界面（辅助）
-│   ├── app.py                  # Flask 后端
-│   └── templates/index.html    # 深色主题前端
+├── backtest/                    # 回测引擎
+│   ├── __init__.py
+│   ├── backtester.py            # Backtester（滑动窗口历史回测）
+│   └── metrics.py               # 绩效指标计算（夏普、MDD、胜率等）
 │
-├── 📁 model/                   # Kronos 模型定义
-├── 📁 data/                    # K线数据文件（.csv / .feather）
-├── 📁 finetune/                # 微调脚本
-└── 📁 examples/                # 使用示例
+├── webui/                       # Flask K 线预测界面（辅助）
+│   ├── app.py                   # Flask 后端 + REST API
+│   ├── start.sh                 # WebUI 独立启动脚本
+│   └── templates/index.html     # 深色主题前端（Plotly 交互图表）
+│
+├── model/                       # Kronos 模型定义（上游）
+├── data/                        # K 线数据（.csv / .feather）
+├── finetune/                    # 微调脚本（上游）
+└── examples/                    # 使用示例（上游）
 ```
 
 ---
 
 ## 🤖 Kronos 模型
 
-Kronos 将 K 线数据视为「金融语言」，通过 Transformer 架构进行自回归预测。
-
 ### 可用模型
 
-| 模型 | 参数量 | 上下文长度 | 适用场景 |
-|------|--------|------------|----------|
-| `Kronos-mini` | 4.1M | 2048 | 快速推断 |
-| `Kronos-small` | 24.7M | 512 | 平衡性能 |
-| `Kronos-base` | 102.3M | 512 | 最佳精度 |
+| 模型 | 参数量 | 上下文长度 | 推荐场景 |
+|------|--------|-----------|---------|
+| `Kronos-mini` | 4.1M | 2048 tokens | 轻量快速推断 |
+| `Kronos-small` | 24.7M | 512 tokens | 平衡性能（默认）|
+| `Kronos-base` | 102.3M | 512 tokens | 最高精度 |
 
-模型托管于 [HuggingFace NeoQuasar](https://huggingface.co/NeoQuasar)，首次运行自动下载。
+模型托管于 [HuggingFace / NeoQuasar](https://huggingface.co/NeoQuasar)，首次运行**自动下载**，无需手动操作。
 
-### 预测流程
+### 推断流程
 
 ```
-原始 OHLCV 数据
-    ↓
-KronosTokenizer（归一化 + Token化）
-    ↓
-Kronos Transformer（自回归推断）
-    ↓
-预测 K 线序列（open/high/low/close）
-    ↓
-交易信号生成（多时框加权投票）
+原始 OHLCV 数据（400 根 K 线）
+        │
+        ▼
+ KronosTokenizer
+ 归一化 → 分桶 → Token 序列
+        │
+        ▼
+ Kronos Transformer
+ 自回归预测（预测 12~120 根 K 线）
+        │
+        ▼
+ 反归一化 → 预测 OHLCV 序列
+        │
+        ▼
+ MultiTimeframeStrategy
+ 多时框加权投票 → BUY / SELL / HOLD
+        │
+        ▼
+ RiskManager
+ 止损止盈过滤 + 仓位控制 → 执行交易
+```
+
+### 代码调用示例
+
+```python
+from model import Kronos, KronosTokenizer, KronosPredictor
+import pandas as pd
+
+# 加载模型（首次自动下载）
+tokenizer = KronosTokenizer.from_pretrained("NeoQuasar/Kronos-Tokenizer-base")
+model = Kronos.from_pretrained("NeoQuasar/Kronos-small")
+predictor = KronosPredictor(model, tokenizer, device="mps", max_context=400)
+
+# 准备输入（需含 open/high/low/close/volume 列）
+df = pd.read_csv("data/BTC_USDT_1h.csv")
+x_df = df[["open", "high", "low", "close", "volume"]].tail(400)
+x_ts = df["timestamps"].tail(400).reset_index(drop=True)
+
+# 构建预测时间戳
+diff = x_ts.iloc[-1] - x_ts.iloc[-2]
+y_ts = pd.Series([x_ts.iloc[-1] + diff * (i + 1) for i in range(12)])
+
+# 执行预测
+pred_df = predictor.predict(
+    df=x_df, x_timestamp=x_ts, y_timestamp=y_ts,
+    pred_len=12, T=1.0, top_p=0.9, sample_count=1
+)
+print(pred_df[["open", "high", "low", "close"]])
 ```
 
 ---
 
-## � 交易系统功能
+## ⚙️ 配置说明
 
-### 实时监控
+### 模拟器参数（`crypto_simulator.py`）
 
-- **多时框预测**：同时对 5m / 15m / 1h / 4h / 1d 执行 Kronos 预测
-- **信号生成**：基于预测涨跌幅加权投票，输出 BUY / SELL / HOLD
-- **K 线图表**：Plotly 交互式 K 线 + 预测线 + 成交量
-- **交易标记**：历史买入 / 卖出点叠加展示
+```python
+SYMBOLS        = ['BTC/USDT', 'ETH/USDT', 'ES=F']  # 交易标的
+TIMEFRAMES     = ['15m', '1h', '4h', '1d']           # 参与预测的时间框架
+LOOKBACK       = 400    # Kronos 输入 K 线数
+PRED_LEN       = 12     # 预测未来 K 线数
+INITIAL_BALANCE= 10000  # 初始虚拟资金（USDT）
+BUY_PCT        = 0.15   # 每次买入使用总资产的 15%
+LOOP_INTERVAL  = 60     # 预测循环间隔（秒）
+```
 
-### 回测分析
+### 风险管理默认值
 
-- 支持自定义时间段、交易对、时间周期
-- 绩效指标：总收益率、年化收益率、夏普比率、最大回撤、胜率
-- 净值曲线可视化
+```python
+stop_loss_pct   = 0.03   # 浮亏 3% 止损平仓
+take_profit_pct = 0.08   # 浮盈 8% 止盈（卖出 50%）
+max_exposure    = 0.80   # 加密货币持仓不超过总资产的 80%
+```
 
-### 策略配置
+### 运行时文件
 
-- 信号阈值 / 强信号阈值
-- 多时框权重（5m / 15m / 1h）
-- 风险参数：买入比例、最大仓位、止损比例、止盈比例
-- 配置持久化（`strategy_config.json`）
+| 文件 | 说明 |
+|------|------|
+| `portfolio_state.json` | 虚拟组合持仓状态（重启后自动恢复）|
+| `simulation_log.csv` | 交易流水记录 |
+| `strategy_config.json` | 策略参数配置（Dashboard 保存）|
+| `backtest_risk_state_*.json` | 回测过程中的风险状态快照 |
 
 ---
 
-## � 学术动态
+## 🔌 REST API（WebUI）
 
-- 🏆 **[2025.11.10]** Kronos 被 AAAI 2026 接收
-- 📄 **[2025.08.17]** 发布微调脚本
-- 📝 **[2025.08.02]** 论文发布于 [arXiv](https://arxiv.org/abs/2508.02739)
+WebUI（`http://localhost:7070`）提供以下 API：
+
+| 方法 | 端点 | 说明 |
+|------|------|------|
+| `GET` | `/api/data-files` | 获取可用数据文件列表 |
+| `POST` | `/api/load-data` | 加载数据文件 |
+| `GET` | `/api/available-models` | 获取可用模型列表 |
+| `GET` | `/api/model-status` | 获取当前模型状态 |
+| `POST` | `/api/load-model` | 加载指定 Kronos 模型 |
+| `POST` | `/api/predict` | 执行 K 线预测 |
+
+---
+
+## 📰 学术动态
+
+- 🏆 **[2025.11.10]** Kronos 被 **AAAI 2026** 接收
+- 📄 **[2025.08.17]** 发布微调脚本（支持自定义任务适配）
+- 📝 **[2025.08.02]** 论文发布于 [arXiv:2508.02739](https://arxiv.org/abs/2508.02739)
 
 ---
 
 ## 📖 引用
 
+如果本项目对你有帮助，欢迎引用原始论文：
+
 ```bibtex
 @inproceedings{kronos2026,
   title     = {Kronos: A Foundation Model for the Language of Financial Markets},
-  booktitle = {AAAI 2026},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence (AAAI 2026)},
   year      = {2026}
 }
 ```
 
 ---
 
-## � 许可证
+## ⚠️ 免责声明
 
-本项目采用 [MIT License](./LICENSE)。
+本项目仅供**学术研究与技术学习**使用。加密货币市场具有高度不确定性，AI 预测模型不保证收益。**请勿将本系统用于真实资金交易。**
+
+---
+
+## 📄 许可证
+
+本项目采用 [MIT License](./LICENSE)。上游 Kronos 模型版权归原作者所有。
 
 ---
 
 <div align="center">
-  <sub>Built with ❤️ on top of the Kronos foundation model</sub>
+  <sub>🪐 Built with PyTorch · Streamlit · Plotly · ccxt · yfinance</sub><br>
+  <sub>Based on <a href="https://github.com/shiyu-coder/Kronos">Kronos (AAAI 2026)</a></sub>
 </div>
