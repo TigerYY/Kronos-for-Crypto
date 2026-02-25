@@ -21,6 +21,7 @@ from datetime import datetime
 try:
     import torch
     from model import Kronos, KronosTokenizer, KronosPredictor
+    from peft import PeftModel
     MODEL_AVAILABLE = True
 except ImportError:
     MODEL_AVAILABLE = False
@@ -171,19 +172,29 @@ class CryptoSimulator:
             # 允许通过环境变量或参数覆盖模型路径（支持本地微调模型目录）
             env_model = os.getenv("KRONOS_MODEL_ID")
             env_tokenizer = os.getenv("KRONOS_TOKENIZER_ID")
+            env_adapter = os.getenv("KRONOS_ADAPTER_ID") # 支持读取我们刚训练好的 LoRA Adapter
+            
             resolved_model_name = model_name or env_model or "NeoQuasar/Kronos-small"
             resolved_tokenizer_name = tokenizer_name or env_tokenizer or "NeoQuasar/Kronos-Tokenizer-base"
+            resolved_adapter_path = env_adapter # 如果没有配置就不加载
 
-            print(f"[Simulator] 加载模型: {resolved_model_name}")
+            print(f"[Simulator] 加载基础主干模型: {resolved_model_name}")
             print(f"[Simulator] 使用 tokenizer: {resolved_tokenizer_name}")
             self.tokenizer = KronosTokenizer.from_pretrained(resolved_tokenizer_name)
             self.model_obj = Kronos.from_pretrained(resolved_model_name)
+            
+            # Record original base model for hot-unloading
+            if not hasattr(self, '_base_model_obj'):
+                self._base_model_obj = self.model_obj
+                
+            self.load_lora_adapter(resolved_adapter_path)
+            
             self.predictor = KronosPredictor(
                 self.model_obj, self.tokenizer,
                 device=self.device,
                 max_context=LOOKBACK,
             )
-            print("[Simulator] 模型加载完成！")
+            print("[Simulator] 交易预测引擎组装完成！")
         else:
             self.device = 'cpu'
             print("[Simulator] 当前以无模型轻量模式运行，预测功能将被降级为模拟值")
@@ -199,6 +210,37 @@ class CryptoSimulator:
             take_profit_pct=take_profit_pct,
         )
         self.portfolio = VirtualPortfolio()
+
+    def load_lora_adapter(self, adapter_path: str | None):
+        """动态卸载/加载 LoRA 权重，实现热重载"""
+        if not MODEL_AVAILABLE or not hasattr(self, '_base_model_obj'):
+            return
+            
+        current_is_peft = isinstance(self.model_obj, PeftModel)
+        
+        # Scenario 1: Switch back to Foundation Model (unload adapter)
+        if not adapter_path:
+            if current_is_peft:
+                print(f"[Simulator] 🔄 卸载特定领域强化配置，回退至全局大盘全能 Foundation Model")
+                self.model_obj = self._base_model_obj
+                # Re-bind predictor to the base model
+                if hasattr(self, 'predictor'):
+                    self.predictor.model = self.model_obj
+            return
+            
+        # Scenario 2: Load or Switch LoRA Adapter
+        print(f"[Simulator] 👑 接收到指令: 挂载领域大模型特化权重: {adapter_path}")
+        try:
+            # Always wrap from the clean base model to avoid stacking adapters
+            self.model_obj = PeftModel.from_pretrained(self._base_model_obj, adapter_path)
+            if hasattr(self, 'predictor'):
+                self.predictor.model = self.model_obj
+            print("[Simulator] ✅ 绝境病毒注射成功，当前化身为特定标的走势杀手！")
+        except Exception as e:
+            print(f"[Simulator] ❌ LoRA 权重加载失败: {e}，将保持主干模型运行")
+            self.model_obj = self._base_model_obj
+            if hasattr(self, 'predictor'):
+                self.predictor.model = self.model_obj
 
     def predict(self, df: pd.DataFrame) -> pd.DataFrame:
         """对单时框 DataFrame 做 Kronos 预测"""

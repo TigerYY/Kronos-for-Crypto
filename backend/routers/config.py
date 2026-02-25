@@ -14,6 +14,7 @@ class ConfigUpdate(BaseModel):
     stop_loss: float | None = None
     take_profit: float | None = None
     min_confidence: float | None = None
+    lora_adapter: str | None = None
 
 
 @router.get("")

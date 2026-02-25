@@ -19,5 +19,7 @@ def post_predict(body: PredictRequest):
     result = predict_svc.run_predict(body.symbol, body.timeframes)
     if "error" in result:
         from fastapi import HTTPException
-        raise HTTPException(status_code=503, detail=result)
+        # Ensure detail is explicitly returned as a string so frontend doesn't render [object Object]
+        error_msg = result.get("details", "") or result.get("error", "Unknown prediction error")
+        raise HTTPException(status_code=503, detail=str(error_msg))
     return result

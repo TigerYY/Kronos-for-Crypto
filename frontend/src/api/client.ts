@@ -90,6 +90,7 @@ export type StrategyConfig = {
   stop_loss?: number;
   take_profit?: number;
   min_confidence?: number;
+  lora_adapter?: string;
 };
 
 export async function getConfig(): Promise<StrategyConfig & Record<string, unknown>> {

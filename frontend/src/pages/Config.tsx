@@ -46,6 +46,7 @@ export default function Config() {
       stop_loss: Number((form.querySelector("[name=stop_loss]") as HTMLInputElement)?.value) / 100,
       take_profit: Number((form.querySelector("[name=take_profit]") as HTMLInputElement)?.value) / 100,
       min_confidence: Number((form.querySelector("[name=min_confidence]") as HTMLInputElement)?.value),
+      lora_adapter: (form.querySelector("input[name=lora_adapter]:checked") as HTMLInputElement)?.value,
     };
     saveMutation.mutate(data);
   };
@@ -72,6 +73,61 @@ export default function Config() {
 
       <motion.form variants={itemVariants} onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+          {/* Model AI Personality / Domain Expert Group */}
+          <div className="glass-panel p-6 lg:p-8 rounded-2xl border-t border-l border-white/5 lg:col-span-2 space-y-6 bg-gradient-to-br from-indigo-900/20 to-transparent">
+            <h3 className="text-xl font-bold text-white tracking-wide flex items-center gap-2 mb-4">
+              <span className="w-1.5 h-6 bg-indigo-500 rounded-full inline-block" />
+              AI 专家模式 (Domain Expert)
+            </h3>
+            <p className="text-sm text-slate-400 mb-6">选择不同的预训练神经网络突触权重。全面看盘或垂直狙击特定行情。</p>
+
+            <div className="flex flex-col space-y-3 max-w-lg">
+              <span className="text-sm font-medium tracking-wide text-slate-300">搭载神经网络模型</span>
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="radio"
+                  name="lora_adapter"
+                  value=""
+                  defaultChecked={!config.lora_adapter}
+                  className="w-5 h-5 bg-slate-900 border-white/20 checked:bg-indigo-500 checked:border-indigo-500 focus:ring-indigo-500/50 focus:ring-offset-slate-950 transition-all cursor-pointer appearance-none rounded-full border-2 checked:border-4"
+                />
+                <span className="text-white group-hover:text-indigo-300 transition-colors">🌐 全局泛化基座模型 (Kronos Foundation - Generalist)</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="radio"
+                  name="lora_adapter"
+                  value="outputs/lora_adapters/lora_BTC_USDT"
+                  defaultChecked={config.lora_adapter === "outputs/lora_adapters/lora_BTC_USDT"}
+                  className="w-5 h-5 bg-slate-900 border-white/20 checked:bg-indigo-500 checked:border-indigo-500 focus:ring-indigo-500/50 focus:ring-offset-slate-950 transition-all cursor-pointer appearance-none rounded-full border-2 checked:border-4"
+                />
+                <span className="text-white group-hover:text-indigo-300 transition-colors">⚡ BTC/USDT 极短线激进型 (LoRA Domain Specialist)</span>
+              </label>
+
+              <div className="text-xs text-indigo-400/80 mt-2 flex items-center gap-1">
+                <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                动态热重载：点击保存即可瞬间熔接新神经元，无需重启核心服务。
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                type="submit"
+                disabled={saveMutation.isPending}
+                className="px-6 py-2.5 rounded-xl font-bold tracking-wide bg-indigo-500/20 text-indigo-300 border border-indigo-500/50 hover:bg-indigo-500 hover:text-white hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all flex items-center gap-2 mt-4"
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                </svg>
+                {saveMutation.isPending ? "全网同步中..." : "保存并注入该领域特化权重"}
+              </motion.button>
+            </div>
+          </div>
 
           {/* Signal Strategy Group */}
           <div className="glass-panel p-6 md:p-8 rounded-2xl border-t border-l border-white/5 space-y-6">
