@@ -39,7 +39,7 @@ class RiskManager:
         take_profit_pct: float = 0.08,
         max_total_exposure: float = 0.80,
         min_trade_usdt: float = 10.0,
-        state_file: str = "risk_state.json",
+        state_file: Optional[str] = "risk_state.json",
     ):
         self.max_position_pct = max_position_pct
         self.stop_loss_pct = stop_loss_pct
@@ -193,6 +193,9 @@ class RiskManager:
 
     def _save_state(self):
         """将持仓记录保存到 JSON 文件"""
+        if not self.state_file:
+            return
+            
         data = {
             sym: {
                 'entry_price': rec.entry_price,
@@ -206,7 +209,7 @@ class RiskManager:
 
     def _load_state(self):
         """从 JSON 文件恢复持仓记录"""
-        if not os.path.exists(self.state_file):
+        if not self.state_file or not os.path.exists(self.state_file):
             return
         try:
             with open(self.state_file, 'r') as f:

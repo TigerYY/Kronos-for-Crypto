@@ -19,11 +19,17 @@ const itemVariants: Variants = {
 
 export default function Backtest() {
   const [result, setResult] = useState<BacktestResponse | null>(null);
+
+  const today = new Date();
+  const sixMonthsAgo = new Date();
+  sixMonthsAgo.setMonth(today.getMonth() - 6);
+  const formatDate = (d: Date) => d.toISOString().split('T')[0];
+
   const [form, setForm] = useState({
     symbol: "BTC/USDT",
     timeframe: "1h",
-    start_date: "2024-01-01",
-    end_date: "2024-06-01",
+    start_date: formatDate(sixMonthsAgo),
+    end_date: formatDate(today),
     initial_capital: 10000,
     lookback: 400,
     pred_len: 12,
@@ -48,6 +54,31 @@ export default function Backtest() {
 
   const metrics = result?.metrics;
   const equity = result?.equity_curve ?? [];
+  const benchmark = result?.benchmark_curve ?? [];
+
+  // 简单的导出 CSV 功能
+  const exportToCSV = () => {
+    if (!result || result.trades.length === 0) return;
+    const headers = ["Timestamp", "Action", "Price", "Amount", "Balance", "Unrealized PnL %", "Reason"];
+    const rows = result.trades.map((t: any) => [
+      t.timestamp ?? "",
+      t.action ?? "",
+      t.price ?? "",
+      t.amount ?? "",
+      t.balance ?? "",
+      t.pnl_pct ? (t.pnl_pct * 100).toFixed(2) + "%" : "",
+      t.reason ? `"${t.reason.replace(/"/g, '""')}"` : ""
+    ]);
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `kronos_${result.symbol.replace(/\//g, '_')}_backtest.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <motion.div
@@ -192,30 +223,42 @@ export default function Backtest() {
             <span className="w-1.5 h-6 bg-emerald-500 rounded-full inline-block" />
             绩效指标
           </motion.h3>
-          <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-            <div className="glass-panel p-5 rounded-2xl flex flex-col justify-center border-t border-white/5">
-              <span className="text-sm text-slate-400 font-medium mb-1">总收益率</span>
-              <span className={`text-2xl font-bold ${(metrics?.total_return ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+          <motion.div variants={itemVariants} className="grid grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
+            <div className="glass-panel p-4 rounded-xl flex flex-col justify-center border-t border-white/5">
+              <span className="text-xs text-slate-400 font-medium mb-1 line-clamp-1" title="总收益率">总收益率</span>
+              <span className={`text-lg font-bold ${(metrics?.total_return ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                 {(metrics?.total_return ?? 0).toFixed(2)}%
               </span>
             </div>
-            <div className="glass-panel p-5 rounded-2xl flex flex-col justify-center border-t border-white/5">
-              <span className="text-sm text-slate-400 font-medium mb-1">年化收益率</span>
-              <span className={`text-2xl font-bold ${(metrics?.annual_return ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+            <div className="glass-panel p-4 rounded-xl flex flex-col justify-center border-t border-white/5">
+              <span className="text-xs text-slate-400 font-medium mb-1 line-clamp-1" title="年化收益率">年化收益率</span>
+              <span className={`text-lg font-bold ${(metrics?.annual_return ?? 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                 {(metrics?.annual_return ?? 0).toFixed(2)}%
               </span>
             </div>
-            <div className="glass-panel p-5 rounded-2xl flex flex-col justify-center border-t border-white/5">
-              <span className="text-sm text-slate-400 font-medium mb-1">夏普比率</span>
-              <span className="text-2xl font-bold text-white">{metrics?.sharpe_ratio?.toFixed(3) ?? "—"}</span>
+            <div className="glass-panel p-4 rounded-xl flex flex-col justify-center border-t border-white/5">
+              <span className="text-xs text-slate-400 font-medium mb-1 line-clamp-1" title="夏普比率">夏普比率</span>
+              <span className="text-lg font-bold text-white">{metrics?.sharpe_ratio?.toFixed(2) ?? "—"}</span>
             </div>
-            <div className="glass-panel p-5 rounded-2xl flex flex-col justify-center border-t border-white/5">
-              <span className="text-sm text-slate-400 font-medium mb-1">最大回撤</span>
-              <span className="text-2xl font-bold text-rose-400">{metrics?.max_drawdown?.toFixed(2) ?? "—"}%</span>
+            <div className="glass-panel p-4 rounded-xl flex flex-col justify-center border-t border-white/5">
+              <span className="text-xs text-slate-400 font-medium mb-1 line-clamp-1" title="最大回撤">最大回撤</span>
+              <span className="text-lg font-bold text-rose-400">{metrics?.max_drawdown?.toFixed(2) ?? "—"}%</span>
             </div>
-            <div className="glass-panel p-5 rounded-2xl flex flex-col justify-center border-t border-white/5">
-              <span className="text-sm text-slate-400 font-medium mb-1">胜率</span>
-              <span className="text-2xl font-bold text-neon-cyan">{metrics?.win_rate?.toFixed(1) ?? "—"}%</span>
+            <div className="glass-panel p-4 rounded-xl flex flex-col justify-center border-t border-white/5">
+              <span className="text-xs text-slate-400 font-medium mb-1 line-clamp-1" title="回撤天数">回撤天数</span>
+              <span className="text-lg font-bold text-slate-300">{metrics?.drawdown_days ?? "—"} 天</span>
+            </div>
+            <div className="glass-panel p-4 rounded-xl flex flex-col justify-center border-t border-white/5">
+              <span className="text-xs text-slate-400 font-medium mb-1 line-clamp-1" title="盈亏比">盈亏比 (PnL)</span>
+              <span className="text-lg font-bold text-amber-400">{metrics?.profit_factor?.toFixed(2) ?? "—"}x</span>
+            </div>
+            <div className="glass-panel p-4 rounded-xl flex flex-col justify-center border-t border-white/5">
+              <span className="text-xs text-slate-400 font-medium mb-1 line-clamp-1" title="胜率">胜率</span>
+              <span className="text-lg font-bold text-neon-cyan">{metrics?.win_rate?.toFixed(1) ?? "—"}%</span>
+            </div>
+            <div className="glass-panel p-4 rounded-xl flex flex-col justify-center border-t border-white/5">
+              <span className="text-xs text-slate-400 font-medium mb-1 line-clamp-1" title="总交易数">总交易数</span>
+              <span className="text-lg font-bold text-slate-300">{metrics?.total_trades ?? 0}</span>
             </div>
           </motion.div>
 
@@ -230,11 +273,19 @@ export default function Backtest() {
                       y: equity.map((p) => p.value),
                       type: "scatter",
                       mode: "lines",
-                      name: "策略净值",
+                      name: "策略净值 (AI)",
                       line: { color: "#00f0ff", width: 2.5 },
                       fill: "tozeroy",
                       fillcolor: "rgba(0,240,255,0.1)",
                     },
+                    ...(benchmark.length > 0 ? [{
+                      x: benchmark.map((p) => p.date),
+                      y: benchmark.map((p) => p.value),
+                      type: "scatter" as const,
+                      mode: "lines" as const,
+                      name: "基准净值 (Buy & Hold)",
+                      line: { color: "#f59e0b", width: 1.5, dash: "dash" as const },
+                    }] : []),
                   ]}
                   layout={{
                     template: "plotly_dark",
@@ -256,10 +307,18 @@ export default function Backtest() {
 
           {result.trades.length > 0 && (
             <motion.div variants={itemVariants} className="space-y-4">
-              <h3 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
-                <span className="w-1.5 h-6 bg-rose-500 rounded-full inline-block" />
-                交易明细
-              </h3>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
+                  <span className="w-1.5 h-6 bg-rose-500 rounded-full inline-block" />
+                  交易明细
+                </h3>
+                <button
+                  onClick={exportToCSV}
+                  className="px-3 py-1.5 text-xs font-semibold bg-slate-800 hover:bg-slate-700 text-white rounded-lg border border-white/10 transition-colors flex items-center gap-1.5"
+                >
+                  <span>⬇️</span> 导出 CSV
+                </button>
+              </div>
               <div className="glass-panel rounded-2xl overflow-hidden border-t border-white/10">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm text-slate-300">

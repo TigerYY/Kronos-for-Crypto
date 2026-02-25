@@ -532,6 +532,12 @@ class KronosPredictor:
         y_stamp = y_time_df.values.astype(np.float32)
 
         x_mean, x_std = np.mean(x, axis=0), np.std(x, axis=0)
+        
+        # 修正稀疏交易量品种的特征被过度放大 (Volume Sparsity Noise Blowup)
+        # 如果标准差极小，直接将其拉回1.0并归零均值，实现静默降级
+        tiny_std_mask = x_std < 1.0
+        x_std[tiny_std_mask] = 1.0
+        x_mean[tiny_std_mask] = 0.0
 
         x = (x - x_mean) / (x_std + 1e-5)
         x = np.clip(x, -self.clip, self.clip)
@@ -546,6 +552,11 @@ class KronosPredictor:
         preds = preds * (x_std + 1e-5) + x_mean
 
         pred_df = pd.DataFrame(preds, columns=self.price_cols + [self.vol_col, self.amt_vol], index=y_timestamp)
+        
+        # 增加强物理约束闭环，防止不符合金融常识的 K 线破坏
+        pred_df['high'] = pred_df[['open', 'close', 'high']].max(axis=1)
+        pred_df['low'] = pred_df[['open', 'close', 'low']].min(axis=1)
+        
         return pred_df
 
 
@@ -617,6 +628,11 @@ class KronosPredictor:
                 raise ValueError(f"y_timestamp length at index {i} should equal pred_len={pred_len}, got {y_stamp.shape[0]}.")
 
             x_mean, x_std = np.mean(x, axis=0), np.std(x, axis=0)
+            
+            tiny_std_mask = x_std < 1.0
+            x_std[tiny_std_mask] = 1.0
+            x_mean[tiny_std_mask] = 0.0
+            
             x_norm = (x - x_mean) / (x_std + 1e-5)
             x_norm = np.clip(x_norm, -self.clip, self.clip)
 
@@ -646,6 +662,10 @@ class KronosPredictor:
         for i in range(num_series):
             preds_i = preds[i] * (stds[i] + 1e-5) + means[i]
             pred_df = pd.DataFrame(preds_i, columns=self.price_cols + [self.vol_col, self.amt_vol], index=y_timestamp_list[i])
+            
+            pred_df['high'] = pred_df[['open', 'close', 'high']].max(axis=1)
+            pred_df['low'] = pred_df[['open', 'close', 'low']].min(axis=1)
+            
             pred_dfs.append(pred_df)
 
         return pred_dfs

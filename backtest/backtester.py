@@ -32,6 +32,7 @@ class BacktestResult:
     end_date: str
     initial_capital: float
     equity_curve: pd.Series                # 净值曲线（以时间戳为索引）
+    benchmark_curve: pd.Series             # 基准曲线 (Buy & Hold 净值)
     trades: List[Dict[str, Any]]           # 交易记录
     metrics: Dict[str, Any]               # 绩效指标
     signals: List[Dict[str, Any]] = field(default_factory=list)  # 信号记录
@@ -117,7 +118,7 @@ class Backtester:
         self.risk_manager = RiskManager(
             stop_loss_pct=stop_loss_pct,
             take_profit_pct=take_profit_pct,
-            state_file=f"backtest_risk_state_{symbol.replace('/', '_')}.json",
+            state_file=None, # 回测模式必须禁用磁盘持久化，防止历史仓位串流污染
         )
 
         # 加载 Kronos 模型
@@ -175,15 +176,21 @@ class Backtester:
         balance = self.initial_capital
         holdings = {self.symbol: 0.0}          # 持有量（单位：币）
         equity_records = {}                     # 时间戳 → 净值
+        benchmark_records = {}
         trades = []
         signals = []
+
+        # 基准价格准线：基于回测窗口起始时刻的价格来建立初始法币仓位等价物
+        start_benchmark_price = float(df['close'].iloc[self.lookback - 1])
+
+        print(f"[Backtester] 开始回测循环，总步长: {len(df) - self.lookback} ...")
 
         # ── 3. 滑动窗口遍历 ────────────────────────────────────
         start_idx = self.lookback
         end_idx = len(df) - self.pred_len
 
         bar = tqdm(
-            range(start_idx, end_idx, self.step_size),
+            range(start_idx, end_idx, 1), # Changed step to 1 for accurate equity/benchmark recording
             desc=f"回测中 {self.symbol}",
             unit="steps",
         )
@@ -194,9 +201,17 @@ class Backtester:
             current_price = float(df['close'].iloc[i])
             current_ts = df['timestamps'].iloc[i]
 
-            # 计算当前净值并记录
-            total_value = balance + holdings[self.symbol] * current_price
-            equity_records[current_ts] = total_value
+            # ── 1. 记录当期净值与基准 ──────────────────────────────
+            current_value = balance + holdings[self.symbol] * current_price
+            equity_records[current_ts] = current_value
+            
+            # 计算无脑买入并持有的基准净值（Benchmark = 起始等额数量 * 当前价）
+            benchmark_qty = self.initial_capital / start_benchmark_price
+            benchmark_records[current_ts] = benchmark_qty * current_price
+
+            # 判断是否到了该算预测的步长
+            if (i - self.lookback) % self.step_size != 0:
+                continue
 
             # 止盈止损检查（优先于信号）
             sl_tp = self.risk_manager.check_stop_loss_take_profit(self.symbol, current_price)
@@ -220,13 +235,13 @@ class Backtester:
                 continue
 
             elif sl_tp == 'TAKE_PROFIT' and holdings[self.symbol] > 0:
-                # 卖出一半止盈
-                sell_amount = holdings[self.symbol] * 0.5
+                # 全部平仓止盈 (避免卖一半导致无限碎片化微小成交量)
+                sell_amount = holdings[self.symbol]
                 recv_usdt = sell_amount * current_price
                 balance += recv_usdt
                 pnl_pct = self.risk_manager.get_unrealized_pnl_pct(self.symbol, current_price)
                 self.risk_manager.record_sell(self.symbol, sell_amount)
-                holdings[self.symbol] -= sell_amount
+                holdings[self.symbol] = 0.0
                 trades.append({
                     'timestamp': current_ts,
                     'action': 'TAKE_PROFIT',
@@ -279,7 +294,7 @@ class Backtester:
                 allowed, reason, adj_usdt = self.risk_manager.check_buy(
                     symbol=self.symbol,
                     amount_usdt=want_usdt,
-                    total_portfolio_value=total_value,
+                    total_portfolio_value=current_value,
                     current_prices={self.symbol: current_price},
                     crypto_holdings=holdings,
                 )
@@ -320,8 +335,13 @@ class Backtester:
         final_price = float(df['close'].iloc[-1])
         final_value = balance + holdings[self.symbol] * final_price
         equity_records[df['timestamps'].iloc[-1]] = final_value
+        
+        benchmark_qty = self.initial_capital / start_benchmark_price
+        benchmark_records[df['timestamps'].iloc[-1]] = benchmark_qty * final_price
 
         equity_curve = pd.Series(equity_records).sort_index()
+        benchmark_curve = pd.Series(benchmark_records).sort_index()
+        
         metrics = calc_metrics(equity_curve, trades, self.initial_capital)
 
         result = BacktestResult(
@@ -331,6 +351,7 @@ class Backtester:
             end_date=self.end_date,
             initial_capital=self.initial_capital,
             equity_curve=equity_curve,
+            benchmark_curve=benchmark_curve,
             trades=trades,
             metrics=metrics,
             signals=signals,

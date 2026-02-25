@@ -128,6 +128,7 @@ export type BacktestResponse = {
   end_date: string;
   initial_capital: number;
   equity_curve: { date: string; value: number }[];
+  benchmark_curve?: { date: string; value: number }[];
   trades: Record<string, unknown>[];
   metrics: Record<string, number>;
 };

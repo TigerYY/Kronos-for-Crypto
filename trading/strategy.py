@@ -45,6 +45,17 @@ class MultiTimeframeStrategy:
         '1d':  0.30,
     }
 
+    # 预测长度固定为 12 根 K 线。为了解决不同时间框架的“尺度错位 (Scale Mismatch)”问题，
+    # 我们将所有时框的预测涨跌幅统一缩放到 12 小时（即 1h 模型预测的总时长）的基准尺度。
+    # 这样能让 15m 的短期爆发力和 1d 的大趋势在同一数量级底座上进行线性加权。
+    TF_SCALE_FACTORS = {
+        '5m':  12.0 / 1.0,    # 12 根 5m = 1 小时，缩放到 12 小时需放大 12 倍
+        '15m': 12.0 / 3.0,    # 12 根 15m = 3 小时，缩放到 12 小时需放大 4 倍
+        '1h':  12.0 / 12.0,   # 基准 12 小时，倍数 1
+        '4h':  12.0 / 48.0,   # 12 根 4h = 48 小时，缩放到 12 小时需缩小 4 倍倒数 (0.25)
+        '1d':  12.0 / 288.0,  # 12 根 1d = 288 小时，倍数 1/24 ≈ 0.04167
+    }
+
     def __init__(
         self,
         threshold: float = 0.005,
@@ -86,14 +97,20 @@ class MultiTimeframeStrategy:
 
             # 若时框不在预设权重表，给默认权重 0.5（支持回测中自定义时框）
             weight = self.TIMEFRAME_WEIGHTS.get(tf, 0.5)
-            change_pct = (pred_price - current_price) / current_price
+            
+            # 基础涨跌幅
+            raw_change_pct = (pred_price - current_price) / current_price
+            
+            # 时框对齐：缩放到基准 12 小时的波动率尺度
+            scale = self.TF_SCALE_FACTORS.get(tf, 1.0)
+            change_pct = raw_change_pct * scale
 
             weighted_change += change_pct * weight
             total_weight += weight
             valid_count += 1
 
-            direction = "↑" if change_pct > 0 else "↓"
-            reasons.append(f"{tf}={direction}{change_pct:.2%}")
+            direction = "↑" if raw_change_pct > 0 else "↓"
+            reasons.append(f"{tf}={direction}{raw_change_pct:.2%}(基准化:{change_pct:.2%})")
 
         # 如果所有时框都失败，返回 HOLD
         if total_weight == 0:

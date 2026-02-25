@@ -43,16 +43,15 @@ def run_backtest(
 
     # Serialize equity curve: index (timestamp) -> str, values -> float
     equity = result.equity_curve
-    if isinstance(equity.index, pd.DatetimeIndex):
-        equity_curve = [
-            {"date": str(equity.index[i]), "value": float(equity.iloc[i])}
-            for i in range(len(equity))
-        ]
-    else:
-        equity_curve = [
-            {"date": str(equity.index[i]), "value": float(equity.iloc[i])}
-            for i in range(len(equity))
-        ]
+    benchmark = result.benchmark_curve
+
+    equity_curve = []
+    benchmark_curve = []
+    
+    for i in range(len(equity)):
+        date_str = str(equity.index[i])
+        equity_curve.append({"date": date_str, "value": float(equity.iloc[i])})
+        benchmark_curve.append({"date": date_str, "value": float(benchmark.iloc[i])})
 
     # Trades: ensure timestamps are strings
     trades = []
@@ -69,6 +68,7 @@ def run_backtest(
         "end_date": result.end_date,
         "initial_capital": result.initial_capital,
         "equity_curve": equity_curve,
+        "benchmark_curve": benchmark_curve,
         "trades": trades,
         "metrics": result.metrics,
     }
