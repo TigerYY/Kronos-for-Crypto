@@ -14,7 +14,7 @@ export default function Layout() {
     { to: "/", label: "实时监控" },
     { to: "/backtest", label: "回测分析" },
     { to: "/config", label: "策略配置" },
-    { to: "/doc", label: "多时间框架说明" },
+    { to: "/doc", label: "K进化纪元" },
   ];
 
   return (
