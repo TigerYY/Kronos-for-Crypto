@@ -84,7 +84,7 @@ export default function Monitor() {
       <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-            实时监控大盘
+            实时预测大盘
           </h1>
           <p className="text-slate-400 mt-1">深度学习驱动的多时间框架预测系统</p>
         </div>

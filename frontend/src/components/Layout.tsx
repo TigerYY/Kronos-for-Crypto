@@ -11,7 +11,7 @@ export default function Layout() {
   });
 
   const navItems = [
-    { to: "/", label: "实时监控" },
+    { to: "/", label: "实时预测" },
     { to: "/backtest", label: "回测分析" },
     { to: "/config", label: "策略配置" },
     { to: "/doc", label: "K进化纪元" },
@@ -26,7 +26,7 @@ export default function Layout() {
             Kronos Trading
           </h2>
           <p className="text-xs text-slate-400 mt-1 uppercase tracking-wider font-semibold">
-            模型驱动 · 实时监控
+            模型驱动 · 实时预测
           </p>
         </div>
 

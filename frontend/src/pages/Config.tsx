@@ -104,6 +104,26 @@ export default function Config() {
                 />
                 <span className="text-white group-hover:text-indigo-300 transition-colors">⚡ BTC/USDT 极短线激进型 (LoRA Domain Specialist)</span>
               </label>
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="radio"
+                  name="lora_adapter"
+                  value="outputs/lora_adapters/lora_ETH_USDT"
+                  defaultChecked={config.lora_adapter === "outputs/lora_adapters/lora_ETH_USDT"}
+                  className="w-5 h-5 bg-slate-900 border-white/20 checked:bg-indigo-500 checked:border-indigo-500 focus:ring-indigo-500/50 focus:ring-offset-slate-950 transition-all cursor-pointer appearance-none rounded-full border-2 checked:border-4"
+                />
+                <span className="text-white group-hover:text-indigo-300 transition-colors">💧 ETH/USDT 以太坊生态联动型</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="radio"
+                  name="lora_adapter"
+                  value="outputs/lora_adapters/lora_ES_F"
+                  defaultChecked={config.lora_adapter === "outputs/lora_adapters/lora_ES_F"}
+                  className="w-5 h-5 bg-slate-900 border-white/20 checked:bg-indigo-500 checked:border-indigo-500 focus:ring-indigo-500/50 focus:ring-offset-slate-950 transition-all cursor-pointer appearance-none rounded-full border-2 checked:border-4"
+                />
+                <span className="text-white group-hover:text-indigo-300 transition-colors">🇺🇸 ES=F 标普500 传统金融锚定型</span>
+              </label>
 
               <div className="text-xs text-indigo-400/80 mt-2 flex items-center gap-1">
                 <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
