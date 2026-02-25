@@ -206,14 +206,38 @@ export default function Monitor() {
           <h3 className="text-lg font-bold text-white tracking-wide">时空结构演化图谱</h3>
           {ohlcvLoading && <span className="text-sm text-neon-cyan animate-pulse">实时同步中...</span>}
         </div>
-        <div className="w-full -mx-4 md:mx-0">
+        <div className="w-full relative h-[500px] -mx-4 md:mx-0">
           {!ohlcvLoading && (
-            <KlineChart
-              data={ohlcv}
-              predSeries={predSeries}
-              symbol={symbol}
-              timeframe={timeframe}
-            />
+            <div className="absolute inset-0">
+              <KlineChart
+                data={ohlcv}
+                predSeries={predSeries}
+                symbol={symbol}
+                timeframe={timeframe}
+              />
+            </div>
+          )}
+
+          {/* AI Prediction Zoom Inset */}
+          {!ohlcvLoading && predSeries && predSeries.length > 0 && ohlcv.length > 0 && (
+            <div className="absolute top-4 left-16 md:left-24 w-48 md:w-72 h-36 md:h-56 glass-panel rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.8)] border border-white/20 z-50 flex flex-col p-2 pointer-events-none bg-[#0d1117]/80 backdrop-blur-md">
+              <div className="flex items-center justify-between px-2 pt-1 mb-1">
+                <span className="text-xs font-bold text-neon-cyan tracking-wider flex items-center gap-1">
+                  <span className="w-1.5 h-1.5 rounded-full bg-neon-cyan animate-pulse"></span>
+                  预测特写 🔍
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono bg-white/5 px-2 py-0.5 rounded">{timeframe}</span>
+              </div>
+              <div className="flex-1 w-full overflow-hidden relative">
+                <KlineChart
+                  data={ohlcv.slice(-15)}
+                  predSeries={predSeries}
+                  symbol={symbol}
+                  timeframe={timeframe}
+                  minimal={true}
+                />
+              </div>
+            </div>
           )}
         </div>
       </motion.div>

@@ -88,7 +88,7 @@ def calc_metrics(
     losing_profits = [abs(p) for p in profits if p < 0]
     avg_win = np.mean(winning_profits) if winning_profits else 0.0
     avg_loss = np.mean(losing_profits) if losing_profits else 0.0
-    profit_factor = avg_win / avg_loss if avg_loss > 0 else float('inf')
+    profit_factor = avg_win / avg_loss if avg_loss > 0 else (999.99 if avg_win > 0 else 0.0)
 
     return {
         'total_return':    round(total_return * 100, 2),       # %

@@ -231,8 +231,9 @@ class CryptoSimulator:
             x_timestamp=x_ts,
             y_timestamp=y_ts,
             pred_len=PRED_LEN,
-            T=1.0,
-            top_p=0.9,
+            T=0.01,         # Stabilize UX: Low temperature
+            top_k=1,        # Stabilize UX: Greedy decoding
+            top_p=1.0,
             sample_count=1,
             verbose=False,
         )

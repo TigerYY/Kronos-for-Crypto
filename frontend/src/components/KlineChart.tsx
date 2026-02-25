@@ -7,6 +7,7 @@ type KlineChartProps = {
   predSeries?: number[];
   symbol: string;
   timeframe: string;
+  minimal?: boolean;
 };
 
 // 将时间字符串转为毫秒时间戳，与 K 线 x 轴一致
@@ -29,7 +30,7 @@ function addIntervalMs(ms: number, timeframe: string): number {
   return d.getTime() + step;
 }
 
-export default function KlineChart({ data, predSeries, symbol, timeframe }: KlineChartProps) {
+export default function KlineChart({ data, predSeries, symbol, timeframe, minimal = false }: KlineChartProps) {
   const { xMs, open, high, low, close } = useMemo(() => {
     if (!data?.length)
       return { xMs: [] as number[], open: [], high: [], low: [], close: [] };
@@ -61,7 +62,7 @@ export default function KlineChart({ data, predSeries, symbol, timeframe }: Klin
       type: "scatter",
       mode: "lines",
       name: "Kronos 预测",
-      line: { color: "#f39c12", width: 2.5, dash: "dash" },
+      line: { color: "#f39c12", width: minimal ? 4 : 2.5, dash: "dash" },
       connectgaps: true,
     };
   }, [predSeries, data, close, timeframe]);
@@ -86,19 +87,24 @@ export default function KlineChart({ data, predSeries, symbol, timeframe }: Klin
       data={traces}
       layout={{
         template: "plotly_dark",
-        paper_bgcolor: "#0d1117",
-        plot_bgcolor: "#0d1117",
-        height: 500,
-        title: `${symbol} · ${timeframe}`,
+        paper_bgcolor: minimal ? "rgba(0,0,0,0)" : "#0d1117",
+        plot_bgcolor: minimal ? "rgba(0,0,0,0)" : "#0d1117",
+        height: minimal ? 180 : 500,
+        title: minimal ? undefined : `${symbol} · ${timeframe}`,
         xaxis: {
           type: "date",
           rangeslider: { visible: false },
           gridcolor: "#1e2a3a",
+          visible: !minimal,
         },
-        yaxis: { gridcolor: "#1e2a3a" },
-        margin: { t: 40, b: 40, l: 60, r: 40 },
+        yaxis: {
+          gridcolor: "#1e2a3a",
+          visible: !minimal,
+        },
+        margin: minimal ? { t: 5, b: 5, l: 5, r: 5 } : { t: 40, b: 40, l: 60, r: 40 },
+        showlegend: false,
       }}
-      config={{ responsive: true }}
+      config={minimal ? { displayModeBar: false, responsive: true } : { responsive: true }}
       style={{ width: "100%" }}
     />
   );
