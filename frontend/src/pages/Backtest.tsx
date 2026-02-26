@@ -103,7 +103,8 @@ export default function Backtest() {
             >
               <option value="BTC/USDT">BTC/USDT</option>
               <option value="ETH/USDT">ETH/USDT</option>
-              <option value="ES=F">ES=F</option>
+              <option value="ES=F">SPX500</option>
+              <option value="XAU/USDT">XAU/USDT（黄金永续）</option>
             </select>
           </label>
           <label className="flex flex-col space-y-1.5">

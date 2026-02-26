@@ -34,7 +34,7 @@ from trading.data_fetcher import DataFetcher
 # ────────────────────────────────────────────────────────
 # 全局配置
 # ────────────────────────────────────────────────────────
-SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'ES=F']
+SYMBOLS = ['BTC/USDT', 'ETH/USDT', 'ES=F', 'XAU/USDT']
 TIMEFRAMES = ['15m', '1h', '4h', '1d']
 LOOKBACK = 400        # Kronos 输入 K 线数
 PRED_LEN = 12         # 预测未来 K 线数

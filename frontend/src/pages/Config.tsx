@@ -122,7 +122,17 @@ export default function Config() {
                   defaultChecked={config.lora_adapter === "outputs/lora_adapters/lora_ES_F"}
                   className="w-5 h-5 bg-slate-900 border-white/20 checked:bg-indigo-500 checked:border-indigo-500 focus:ring-indigo-500/50 focus:ring-offset-slate-950 transition-all cursor-pointer appearance-none rounded-full border-2 checked:border-4"
                 />
-                <span className="text-white group-hover:text-indigo-300 transition-colors">🇺🇸 ES=F 标普500 传统金融锚定型</span>
+                <span className="text-white group-hover:text-indigo-300 transition-colors">🇺🇸 SPX500 标普500 传统金融锚定型</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="radio"
+                  name="lora_adapter"
+                  value="outputs/lora_adapters/lora_GC_F"
+                  defaultChecked={config.lora_adapter === "outputs/lora_adapters/lora_GC_F"}
+                  className="w-5 h-5 bg-slate-900 border-white/20 checked:bg-indigo-500 checked:border-indigo-500 focus:ring-indigo-500/50 focus:ring-offset-slate-950 transition-all cursor-pointer appearance-none rounded-full border-2 checked:border-4"
+                />
+                <span className="text-white group-hover:text-amber-300 transition-colors">🥇 XAU/USDT 黄金永续 避险资产型</span>
               </label>
 
               <div className="text-xs text-indigo-400/80 mt-2 flex items-center gap-1">

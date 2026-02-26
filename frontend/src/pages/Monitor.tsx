@@ -11,7 +11,12 @@ import SignalCard from "../components/SignalCard";
 import MetricCard from "../components/MetricCard";
 import { motion, type Variants } from "framer-motion";
 
-const SYMBOLS = ["BTC/USDT", "ETH/USDT", "ES=F"];
+const SYMBOLS = ["BTC/USDT", "ETH/USDT", "ES=F", "XAU/USDT"];
+// 对部分 symbol 覆盖显示名称，不影响实际 API 请求的 value
+const SYMBOL_LABELS: Record<string, string> = {
+  "ES=F": "SPX500",
+  "XAU/USDT": "XAU/USDT 🥇",
+};
 const TIMEFRAMES = ["5m", "15m", "1h", "4h", "1d"];
 const INITIAL_BALANCE = 10000;
 
@@ -98,7 +103,7 @@ export default function Monitor() {
             >
               {SYMBOLS.map((s) => (
                 <option key={s} value={s} className="bg-slate-900 text-white">
-                  {s}
+                  {SYMBOL_LABELS[s] ?? s}
                 </option>
               ))}
             </select>

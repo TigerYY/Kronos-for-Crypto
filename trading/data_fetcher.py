@@ -28,19 +28,29 @@ YFINANCE_TF_MAP = {
     '1d':  '1d',
 }
 
-# 非加密货币标的的显示名称
+# 非加密货币标的的显示名称（yfinance 路由）
 TRADITIONAL_SYMBOL_NAMES = {
     'ES=F':     '标普500期货 (ES)',
     'NQ=F':     '纳指期货 (NQ)',
-    'GC=F':     '黄金期货 (GC)',
     'CL=F':     '原油期货 (CL)',
     'EURUSD=X': '欧元/美元',
 }
 
+# Binance USDT-M 永续合约映射：用户友好名称 → ccxt swap symbol
+# 含 '/' 但非 Binance 现货市场的品种走此路由（实时无延迟）
+BINANCE_SWAP_SYMBOLS: dict[str, str] = {
+    'XAU/USDT': 'XAU/USDT:USDT',   # 黄金永续合约
+}
+
+
+def is_swap(symbol: str) -> bool:
+    """判断是否为 Binance 永续合约 symbol（在 BINANCE_SWAP_SYMBOLS 映射表中）"""
+    return symbol in BINANCE_SWAP_SYMBOLS
+
 
 def is_crypto(symbol: str) -> bool:
-    """判断是否为加密货币 symbol（含 '/' 的格式）"""
-    return '/' in symbol
+    """判断是否为普通加密货币 symbol（含 '/'，且不是永续合约）"""
+    return '/' in symbol and not is_swap(symbol)
 
 
 class DataFetcher:
@@ -63,9 +73,15 @@ class DataFetcher:
     }
 
     def __init__(self, exchange_id: str = 'binance'):
-        # 初始化 ccxt 交易所（加密货币用）
+        # 初始化 ccxt Binance 现货交易所（加密货币用）
         exchange_class = getattr(ccxt, exchange_id)
         self.exchange = exchange_class({
+            'timeout': 30000,
+            'enableRateLimit': True,
+        })
+
+        # 初始化 Binance USDT-M 永续合约交易所（黄金等永续合约用，实时无延迟）
+        self.swap_exchange = ccxt.binanceusdm({
             'timeout': 30000,
             'enableRateLimit': True,
         })
@@ -103,7 +119,10 @@ class DataFetcher:
             if time.time() - cached_time < ttl:
                 return cached_df.copy()
 
-        if is_crypto(symbol):
+        if is_swap(symbol):
+            # 永续合约路由（binanceusdm），实时无延迟
+            df = self._fetch_swap(symbol, timeframe, limit)
+        elif is_crypto(symbol):
             df = self._fetch_crypto(symbol, timeframe, limit)
         else:
             df = self._fetch_yfinance(symbol, timeframe, limit)
@@ -142,7 +161,10 @@ class DataFetcher:
             df = pd.read_csv(cache_file, parse_dates=['timestamps'])
             return df
 
-        if is_crypto(symbol):
+        if is_swap(symbol):
+            print(f"[DataFetcher] 从 Binance 永续合约拉取历史数据: {symbol} {timeframe}")
+            df = self._fetch_historical_swap(symbol, timeframe, start_date, end_date)
+        elif is_crypto(symbol):
             print(f"[DataFetcher] 从 Binance 拉取历史数据: {symbol} {timeframe}")
             df = self._fetch_historical_crypto(symbol, timeframe, start_date, end_date)
         else:
@@ -156,7 +178,12 @@ class DataFetcher:
     def get_current_price(self, symbol: str) -> float:
         """获取当前最新价格"""
         try:
-            if is_crypto(symbol):
+            if is_swap(symbol):
+                # 永续合约实时价格（无延迟）
+                swap_sym = BINANCE_SWAP_SYMBOLS[symbol]
+                ticker = self.swap_exchange.fetch_ticker(swap_sym)
+                return float(ticker['last'])
+            elif is_crypto(symbol):
                 ticker = self.exchange.fetch_ticker(symbol)
                 return float(ticker['last'])
             else:
@@ -176,8 +203,44 @@ class DataFetcher:
     # 加密货币数据源（ccxt Binance）
     # ------------------------------------------------------------------ #
 
+    def _fetch_swap(self, symbol: str, timeframe: str, limit: int) -> pd.DataFrame:
+        """从 Binance USDT-M 永续合约拉取 OHLCV（实时，无延迟）"""
+        swap_sym = BINANCE_SWAP_SYMBOLS[symbol]
+        raw = self.swap_exchange.fetch_ohlcv(swap_sym, timeframe, limit=limit + 20)
+        return self._raw_to_df(raw).tail(limit).reset_index(drop=True)
+
+    def _fetch_historical_swap(
+        self, symbol: str, timeframe: str, start_date: str, end_date: str
+    ) -> pd.DataFrame:
+        """分段从 Binance USDT-M 永续合约拉取完整历史数据"""
+        swap_sym = BINANCE_SWAP_SYMBOLS[symbol]
+        start_ts = int(pd.Timestamp(start_date, tz='UTC').timestamp() * 1000)
+        end_ts   = int(pd.Timestamp(end_date,   tz='UTC').timestamp() * 1000)
+
+        all_data = []
+        current_ts = start_ts
+        while current_ts < end_ts:
+            try:
+                raw = self.swap_exchange.fetch_ohlcv(
+                    swap_sym, timeframe, since=current_ts, limit=1000)
+                if not raw:
+                    break
+                all_data.extend(raw)
+                current_ts = raw[-1][0] + 1
+                time.sleep(self.swap_exchange.rateLimit / 1000)
+            except Exception as e:
+                print(f"[DataFetcher] 永续合约历史分段拉取失败: {e}")
+                break
+
+        if not all_data:
+            return pd.DataFrame(columns=['timestamps','open','high','low','close','volume','amount'])
+
+        df = self._raw_to_df(all_data)
+        df = df[df['timestamps'] <= pd.Timestamp(end_date, tz='UTC').tz_localize(None)]
+        return df.reset_index(drop=True)
+
     def _fetch_crypto(self, symbol: str, timeframe: str, limit: int) -> pd.DataFrame:
-        """从 Binance 拉取加密货币 OHLCV"""
+        """从 Binance 现货拉取加密货币 OHLCV"""
         raw = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit + 20)
         return self._raw_to_df(raw).tail(limit).reset_index(drop=True)
 
