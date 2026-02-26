@@ -243,62 +243,70 @@ export default function Monitor() {
       </motion.div>
 
       {/* Multi-Timeframe Signals */}
-      {signal && (
-        <motion.div variants={itemVariants} className="space-y-4">
-          <h3 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
-            <span className="w-1.5 h-6 bg-neon-purple rounded-full inline-block" />
-            多重分形预测矩阵
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {["15m", "1h", "4h", "1d"].map((tf) => {
-              const pred = predictResult?.predictions?.[tf];
-              if (pred == null) return null;
-              const chg =
-                currentPrice != null
-                  ? ((pred - currentPrice) / currentPrice) * 100
-                  : 0;
-              const isPos = chg >= 0;
+      <motion.div variants={itemVariants} className="space-y-4">
+        <h3 className="text-xl font-bold text-white tracking-wide flex items-center gap-2">
+          <span className="w-1.5 h-6 bg-neon-purple rounded-full inline-block" />
+          多时间框架信号
+        </h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          {["15m", "1h", "4h", "1d"].map((tf) => {
+            const pred = predictResult?.predictions?.[tf];
+            if (pred == null) {
               return (
-                <div key={tf} className="glass-panel p-4 rounded-xl flex flex-col items-center justify-center border-t border-white/10 hover:bg-white/5 transition-colors">
+                <div key={tf} className="glass-panel p-4 rounded-xl flex flex-col items-center justify-center border-t border-white/10 opacity-50">
                   <span className="text-sm text-slate-400 font-semibold mb-1 uppercase tracking-wider">{tf} 模型</span>
-                  <span className="text-xl font-bold text-white mb-1">${pred.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                  <span className={`text-sm font-medium ${isPos ? 'text-neon-cyan' : 'text-rose-400'}`}>
-                    {isPos ? "+" : ""}{chg.toFixed(2)}%
-                  </span>
+                  <span className="text-xl font-bold text-slate-500 mb-1">—</span>
+                  <span className="text-sm font-medium text-slate-500">—</span>
                 </div>
               );
-            })}
+            }
+            const chg =
+              currentPrice != null
+                ? ((pred - currentPrice) / currentPrice) * 100
+                : 0;
+            const isPos = chg >= 0;
+            return (
+              <div key={tf} className="glass-panel p-4 rounded-xl flex flex-col items-center justify-center border-t border-white/10 hover:bg-white/5 transition-colors">
+                <span className="text-sm text-slate-400 font-semibold mb-1 uppercase tracking-wider">{tf} 模型</span>
+                <span className="text-xl font-bold text-white mb-1">${pred.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
+                <span className={`text-sm font-medium ${isPos ? 'text-neon-cyan' : 'text-rose-400'}`}>
+                  {isPos ? "+" : ""}{chg.toFixed(2)}%
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row items-center gap-6 mt-4">
+          <div className="flex-1 w-full">
+            <div className="flex justify-between items-end mb-2">
+              <span className="text-sm text-slate-400 tracking-wide font-medium">信号置信度</span>
+              <span className="text-lg font-bold text-neon-purple">{signal ? (signal.confidence * 100).toFixed(1) : "0.0"}%</span>
+            </div>
+            <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden">
+              <motion.div
+                initial={{ width: 0 }}
+                animate={{ width: `${signal ? signal.confidence * 100 : 0}%` }}
+                transition={{ duration: 1, ease: "easeOut" }}
+                className="bg-gradient-to-r from-neon-purple to-neon-cyan h-2.5 rounded-full"
+              />
+            </div>
           </div>
 
-          <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row items-center gap-6 mt-4">
-            <div className="flex-1 w-full">
-              <div className="flex justify-between items-end mb-2">
-                <span className="text-sm text-slate-400 tracking-wide font-medium">模型综合置信度评估</span>
-                <span className="text-lg font-bold text-neon-purple">{(signal.confidence * 100).toFixed(1)}%</span>
-              </div>
-              <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden">
-                <motion.div
-                  initial={{ width: 0 }}
-                  animate={{ width: `${signal.confidence * 100}%` }}
-                  transition={{ duration: 1, ease: "easeOut" }}
-                  className="bg-gradient-to-r from-neon-purple to-neon-cyan h-2.5 rounded-full"
-                />
-              </div>
-            </div>
-
-            <div className="flex-1 w-full">
-              <span className="text-sm text-slate-400 tracking-wide font-medium block mb-2">决策归因因子 (Feature Attribution)</span>
-              <div className="flex flex-wrap gap-2">
-                {signal.reasons.map((r, i) => (
-                  <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-xs text-slate-300">
-                    {r}
-                  </span>
-                ))}
-              </div>
+          <div className="flex-1 w-full">
+            <span className="text-sm text-slate-400 tracking-wide font-medium block mb-2">决策归因因子 (Feature Attribution)</span>
+            <div className="flex flex-wrap gap-2">
+              {signal ? signal.reasons.map((r, i) => (
+                <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-xs text-slate-300">
+                  {r}
+                </span>
+              )) : (
+                <span className="text-xs text-slate-500 italic">暂无归因数据</span>
+              )}
             </div>
           </div>
-        </motion.div>
-      )}
+        </div>
+      </motion.div>
 
       {/* Recent Trades Table */}
       <motion.div variants={itemVariants} className="space-y-4">

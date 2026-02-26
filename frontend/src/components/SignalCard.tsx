@@ -20,7 +20,7 @@ export default function SignalCard({ action }: SignalCardProps) {
       whileHover={{ scale: 1.05 }}
       className={`rounded-2xl border p-6 flex flex-col justify-center items-center backdrop-blur-md ${colorClasses}`}
     >
-      <div className="text-sm font-medium tracking-widest uppercase opacity-80 mb-1">Signal</div>
+      <div className="text-sm font-medium tracking-widest uppercase opacity-80 mb-1">综合信号</div>
       <div className="text-3xl font-black tracking-tight flex items-center gap-2">
         {isBuy && <span>▲</span>}
         {isSell && <span>▼</span>}
