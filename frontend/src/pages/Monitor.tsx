@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   getOhlcv,
@@ -12,13 +12,13 @@ import MetricCard from "../components/MetricCard";
 import { motion, type Variants } from "framer-motion";
 
 const SYMBOLS = ["BTC/USDT", "ETH/USDT", "ES=F", "XAU/USDT"];
-// 对部分 symbol 覆盖显示名称，不影响实际 API 请求的 value
 const SYMBOL_LABELS: Record<string, string> = {
   "ES=F": "SPX500",
   "XAU/USDT": "XAU/USDT 🥇",
 };
 const TIMEFRAMES = ["5m", "15m", "1h", "4h", "1d"];
 const INITIAL_BALANCE = 10000;
+const REFRESH_INTERVAL_MS = 300000; // 5分钟
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -38,14 +38,31 @@ export default function Monitor() {
   const [timeframe, setTimeframe] = useState("1h");
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [predictResult, setPredictResult] = useState<PredictResponse | null>(null);
+  const [timeLeft, setTimeLeft] = useState(REFRESH_INTERVAL_MS / 1000);
 
   const queryClient = useQueryClient();
 
-  const { data: ohlcv = [], isLoading: ohlcvLoading } = useQuery({
+  const { data: ohlcv = [], isLoading: ohlcvLoading, isFetching: ohlcvFetching } = useQuery({
     queryKey: ["ohlcv", symbol, timeframe],
     queryFn: () => getOhlcv(symbol, timeframe, 512),
-    refetchInterval: autoRefresh ? 300000 : false,
+    refetchInterval: autoRefresh ? REFRESH_INTERVAL_MS : false,
   });
+
+  // 倒计时逻辑
+  useEffect(() => {
+    // 每次开始拉取新数据时重置倒计时
+    if (ohlcvFetching) {
+      setTimeLeft(REFRESH_INTERVAL_MS / 1000);
+      return;
+    }
+
+    if (!autoRefresh) return;
+
+    const timer = setInterval(() => {
+      setTimeLeft((prev) => (prev > 0 ? prev - 1 : REFRESH_INTERVAL_MS / 1000));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [autoRefresh, ohlcvFetching]);
 
   const { data: trades = [], isLoading: tradesLoading } = useQuery({
     queryKey: ["trades"],
@@ -121,13 +138,32 @@ export default function Monitor() {
             </select>
             <div className="w-px h-6 bg-white/10 mx-1" />
             <button
-              onClick={() => setAutoRefresh(!autoRefresh)}
-              className={`flex items-center gap-1.5 px-2 py-1 rounded-md text-xs font-semibold transition-colors ${autoRefresh ? "text-neon-cyan/90 hover:text-neon-cyan" : "text-slate-500 hover:text-slate-300"
+              onClick={() => {
+                setAutoRefresh(!autoRefresh);
+                if (!autoRefresh) setTimeLeft(REFRESH_INTERVAL_MS / 1000);
+              }}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold transition-all ${autoRefresh ? "text-neon-cyan hover:bg-neon-cyan/10" : "text-slate-500 hover:bg-white/5"
                 }`}
               title="开启后行情与交易记录每 5 分钟自动同步"
             >
-              <div className={`w-1.5 h-1.5 rounded-full ${autoRefresh ? "bg-neon-cyan animate-pulse shadow-[0_0_5px_rgba(0,240,255,0.8)]" : "bg-slate-600"}`} />
-              自动同步
+              <div className="relative flex items-center justify-center w-2 h-2">
+                {autoRefresh ? (
+                  <>
+                    <div className="absolute inline-flex w-full h-full rounded-full bg-neon-cyan opacity-75 animate-ping" />
+                    <div className="relative inline-flex w-1.5 h-1.5 rounded-full bg-neon-cyan" />
+                  </>
+                ) : (
+                  <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                )}
+              </div>
+              <div className="flex flex-col items-start -space-y-0.5 min-w-[3.5rem]">
+                <span>自动同步</span>
+                {autoRefresh && (
+                  <span className="text-[10px] font-mono text-neon-cyan/70 tracking-tighter">
+                    {Math.floor(timeLeft / 60).toString().padStart(2, '0')}:{(timeLeft % 60).toString().padStart(2, '0')}
+                  </span>
+                )}
+              </div>
             </button>
           </div>
 
@@ -155,7 +191,7 @@ export default function Monitor() {
           label="当前标记价格"
           value={
             currentPrice != null
-              ? `$${currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+              ? `$${currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               : "—"
           }
         />
@@ -163,7 +199,7 @@ export default function Monitor() {
           label={`${timeframe} 预测目标价`}
           value={
             predictedPrice != null
-              ? `$${predictedPrice.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+              ? `$${predictedPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               : "—"
           }
           delta={
@@ -189,9 +225,9 @@ export default function Monitor() {
           label="组合实时净值"
           value={
             totalValue != null
-              ? `$${totalValue.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+              ? `$${totalValue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               : portfolio?.balance != null
-                ? `$${portfolio.balance.toLocaleString("en-US", { minimumFractionDigits: 2 })}`
+                ? `$${portfolio.balance.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
                 : "—"
           }
           delta={
@@ -207,9 +243,33 @@ export default function Monitor() {
 
       {/* Main Chart Area */}
       <motion.div variants={itemVariants} className="glass-panel rounded-2xl p-4 md:p-6 overflow-hidden border-t border-l border-white/5">
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-bold text-white tracking-wide">时空结构演化图谱</h3>
-          {ohlcvLoading && <span className="text-sm text-neon-cyan animate-pulse">实时同步中...</span>}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-lg font-bold text-white tracking-wide">时空结构演化图谱</h3>
+            {ohlcvLoading && <span className="text-sm text-neon-cyan animate-pulse">实时同步中...</span>}
+          </div>
+
+          {/* Signal Confidence floating indicator */}
+          <div className="flex flex-col items-end gap-1.5 min-w-[140px]">
+            <span className="text-xs text-slate-400 font-medium tracking-widest uppercase">模型置信度</span>
+            {signal ? (
+              <div className="flex items-center gap-3 w-full justify-end">
+                <div className="w-24 bg-slate-800 rounded-full h-1.5 overflow-hidden flex-shrink-0">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${signal.confidence * 100}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className="bg-gradient-to-r from-neon-purple to-neon-cyan h-1.5 rounded-full"
+                  />
+                </div>
+                <span className="text-sm font-bold text-neon-cyantabular-nums">
+                  {(signal.confidence * 100).toFixed(1)}%
+                </span>
+              </div>
+            ) : (
+              <span className="text-sm font-bold text-slate-600">—</span>
+            )}
+          </div>
         </div>
         <div className="w-full relative h-[500px] -mx-4 md:mx-0">
           {!ohlcvLoading && (
@@ -223,27 +283,7 @@ export default function Monitor() {
             </div>
           )}
 
-          {/* AI Prediction Zoom Inset */}
-          {!ohlcvLoading && predSeries && predSeries.length > 0 && ohlcv.length > 0 && (
-            <div className="absolute top-4 left-16 md:left-24 w-48 md:w-72 h-36 md:h-56 glass-panel rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.8)] border border-white/20 z-50 flex flex-col p-2 pointer-events-none bg-[#0d1117]/80 backdrop-blur-md">
-              <div className="flex items-center justify-between px-2 pt-1 mb-1">
-                <span className="text-xs font-bold text-neon-cyan tracking-wider flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-neon-cyan animate-pulse"></span>
-                  预测特写 🔍
-                </span>
-                <span className="text-[10px] text-slate-400 font-mono bg-white/5 px-2 py-0.5 rounded">{timeframe}</span>
-              </div>
-              <div className="flex-1 w-full overflow-hidden relative">
-                <KlineChart
-                  data={ohlcv.slice(-15)}
-                  predSeries={predSeries}
-                  symbol={symbol}
-                  timeframe={timeframe}
-                  minimal={true}
-                />
-              </div>
-            </div>
-          )}
+
         </div>
       </motion.div>
 
@@ -255,62 +295,72 @@ export default function Monitor() {
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {["15m", "1h", "4h", "1d"].map((tf) => {
-            const pred = predictResult?.predictions?.[tf];
-            if (pred == null) {
+            const predTarget = predictResult?.predictions?.[tf];
+            const series = predictResult?.pred_series?.[tf];
+
+            if (predTarget == null) {
               return (
-                <div key={tf} className="glass-panel p-4 rounded-xl flex flex-col items-center justify-center border-t border-white/10 opacity-50">
-                  <span className="text-sm text-slate-400 font-semibold mb-1 uppercase tracking-wider">{tf} 模型</span>
-                  <span className="text-xl font-bold text-slate-500 mb-1">—</span>
-                  <span className="text-sm font-medium text-slate-500">—</span>
+                <div key={tf} className="glass-panel py-3 px-4 rounded-xl flex flex-col items-center justify-center border-t border-white/10 opacity-50 relative overflow-hidden h-28">
+                  <span className="text-xs text-slate-400 font-semibold mb-1 uppercase tracking-wider relative z-10">{tf} 模型</span>
+                  <span className="text-lg font-bold text-slate-500 mb-0.5 relative z-10">—</span>
+                  <span className="text-xs font-medium text-slate-500 relative z-10">—</span>
                 </div>
               );
             }
             const chg =
               currentPrice != null
-                ? ((pred - currentPrice) / currentPrice) * 100
+                ? ((predTarget - currentPrice) / currentPrice) * 100
                 : 0;
             const isPos = chg >= 0;
+
+            // Generate minimal sparkline SVG logic
+            let sparklineSvg = null;
+            if (series && series.length > 0) {
+              // Combine current price as starting point
+              const fullSeries = [currentPrice ?? series[0], ...series];
+              const minStr = Math.min(...fullSeries);
+              const maxStr = Math.max(...fullSeries);
+              const range = maxStr - minStr || 1;
+              const points = fullSeries.map((v, i) => {
+                const x = (i / (fullSeries.length - 1)) * 100;
+                // Pad top and bottom margins (10-90)
+                const y = 90 - ((v - minStr) / range) * 80;
+                return `${x},${y}`;
+              }).join(" ");
+
+              const strokeColor = isPos ? 'rgba(52, 211, 153, 0.6)' : 'rgba(251, 113, 133, 0.6)'; // emerald or rose with opacity
+              const fillColor = isPos ? 'rgba(52, 211, 153, 0.1)' : 'rgba(251, 113, 133, 0.1)';
+
+              sparklineSvg = (
+                <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-x-0 bottom-0 w-full h-1/2 opacity-60">
+                  {/* Fill area */}
+                  <polygon points={`0,100 ${points} 100,100`} fill={fillColor} />
+                  {/* Line */}
+                  <polyline points={points} fill="none" stroke={strokeColor} strokeWidth="3" strokeLinejoin="round" />
+                  {/* Ending Dot */}
+                  <circle cx="100" cy={90 - ((fullSeries[fullSeries.length - 1] - minStr) / range) * 80} r="3" fill={isPos ? '#34d399' : '#fb7185'} />
+                </svg>
+              );
+            }
+
             return (
-              <div key={tf} className="glass-panel p-4 rounded-xl flex flex-col items-center justify-center border-t border-white/10 hover:bg-white/5 transition-colors">
-                <span className="text-sm text-slate-400 font-semibold mb-1 uppercase tracking-wider">{tf} 模型</span>
-                <span className="text-xl font-bold text-white mb-1">${pred.toLocaleString("en-US", { minimumFractionDigits: 2 })}</span>
-                <span className={`text-sm font-medium ${isPos ? 'text-neon-cyan' : 'text-rose-400'}`}>
-                  {isPos ? "+" : ""}{chg.toFixed(2)}%
-                </span>
+              <div key={tf} className="glass-panel py-3 px-4 rounded-xl flex flex-col items-center justify-between border-t border-white/10 hover:bg-white/5 transition-colors relative h-28 overflow-hidden group">
+                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider relative z-10">{tf} 视图</span>
+                {sparklineSvg}
+                <div className="flex flex-col items-center relative z-10">
+                  <span className="text-lg font-bold text-white leading-tight drop-shadow-md">
+                    ${predTarget.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                  </span>
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full mt-1 ${isPos ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                    {isPos ? "+" : ""}{chg.toFixed(2)}%
+                  </span>
+                </div>
               </div>
             );
           })}
         </div>
 
-        <div className="glass-panel p-6 rounded-2xl flex flex-col md:flex-row items-center gap-6 mt-4">
-          <div className="flex-1 w-full">
-            <div className="flex justify-between items-end mb-2">
-              <span className="text-sm text-slate-400 tracking-wide font-medium">信号置信度</span>
-              <span className="text-lg font-bold text-neon-purple">{signal ? (signal.confidence * 100).toFixed(1) : "0.0"}%</span>
-            </div>
-            <div className="w-full bg-slate-900 rounded-full h-2.5 overflow-hidden">
-              <motion.div
-                initial={{ width: 0 }}
-                animate={{ width: `${signal ? signal.confidence * 100 : 0}%` }}
-                transition={{ duration: 1, ease: "easeOut" }}
-                className="bg-gradient-to-r from-neon-purple to-neon-cyan h-2.5 rounded-full"
-              />
-            </div>
-          </div>
 
-          <div className="flex-1 w-full">
-            <span className="text-sm text-slate-400 tracking-wide font-medium block mb-2">决策归因因子 (Feature Attribution)</span>
-            <div className="flex flex-wrap gap-2">
-              {signal ? signal.reasons.map((r, i) => (
-                <span key={i} className="px-3 py-1 bg-white/5 border border-white/10 rounded-md text-xs text-slate-300">
-                  {r}
-                </span>
-              )) : (
-                <span className="text-xs text-slate-500 italic">暂无归因数据</span>
-              )}
-            </div>
-          </div>
-        </div>
       </motion.div>
 
       {/* Recent Trades Table */}
