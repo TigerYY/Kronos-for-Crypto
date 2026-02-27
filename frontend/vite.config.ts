@@ -8,4 +8,8 @@ export default defineConfig({
     react(),
     tailwindcss(),
   ],
+  server: {
+    host: '::',   // 同时监听 IPv4 (0.0.0.0) 和 IPv6 (::1)，兼容 macOS localhost 解析
+    port: 5173,
+  },
 })

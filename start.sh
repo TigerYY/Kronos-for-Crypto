@@ -47,7 +47,20 @@ elif [ "$MODE" = "dev" ]; then
     echo ""
     echo "   后端：http://localhost:8000  前端：http://localhost:5173"
     echo "   按 Ctrl+C 停止"
-    trap "kill $UVID_PID $FEPID 2>/dev/null; exit" INT TERM
+    
+    # 定义清理函数，确保杀死后台进程和它们的子进程(如 Vite)
+    cleanup() {
+        echo ""
+        echo "🛑 正在清理服务进程..."
+        kill $UVID_PID 2>/dev/null || true
+        pkill -P $FEPID 2>/dev/null || true
+        kill $FEPID 2>/dev/null || true
+        exit 0
+    }
+    
+    # 捕获 Ctrl+C (INT), kill (TERM), 终端关闭 (HUP), 脚本退出 (EXIT)
+    trap cleanup EXIT INT TERM HUP
+    
     wait
 
 else
