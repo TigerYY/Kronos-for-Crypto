@@ -1,10 +1,9 @@
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   getOhlcv,
   getTrades,
   postPredict,
-  type PredictResponse,
 } from "../api/client";
 import KlineChart from "../components/KlineChart";
 import SignalCard from "../components/SignalCard";
@@ -31,22 +30,37 @@ const containerVariants: Variants = {
 const itemVariants: Variants = {
   hidden: { y: 20, opacity: 0 },
   visible: { y: 0, opacity: 1, transition: { duration: 0.5, type: "spring" } },
-};
+}
 
 export default function Monitor() {
   const [symbol, setSymbol] = useState("BTC/USDT");
   const [timeframe, setTimeframe] = useState("1h");
   const [autoRefresh, setAutoRefresh] = useState(true);
-  const [predictResult, setPredictResult] = useState<PredictResponse | null>(null);
   const [timeLeft, setTimeLeft] = useState(REFRESH_INTERVAL_MS / 1000);
 
   const queryClient = useQueryClient();
 
+  // 1. 获取 OHLCV (受自动同步控制)
   const { data: ohlcv = [], isLoading: ohlcvLoading, isFetching: ohlcvFetching } = useQuery({
     queryKey: ["ohlcv", symbol, timeframe],
     queryFn: () => getOhlcv(symbol, timeframe, 512),
     refetchInterval: autoRefresh ? REFRESH_INTERVAL_MS : false,
   });
+
+  // 2. 预测 AI 数据 (同样受自动同步控制)
+  const predictQuery = useQuery({
+    queryKey: ["predict", symbol],
+    queryFn: () => postPredict(symbol, ["5m", "15m", "1h", "4h", "1d"]),
+    refetchInterval: autoRefresh ? REFRESH_INTERVAL_MS : false,
+  });
+
+  // 预测数据更新后，自动刷新账户资金与交易记录
+  useEffect(() => {
+    if (predictQuery.data) {
+      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
+      queryClient.invalidateQueries({ queryKey: ["trades"] });
+    }
+  }, [predictQuery.data, queryClient]);
 
   // 倒计时逻辑
   useEffect(() => {
@@ -67,17 +81,10 @@ export default function Monitor() {
   const { data: trades = [], isLoading: tradesLoading } = useQuery({
     queryKey: ["trades"],
     queryFn: () => getTrades(50),
-    refetchInterval: autoRefresh ? 300000 : false,
+    refetchInterval: autoRefresh ? REFRESH_INTERVAL_MS : false,
   });
 
-  const predictMutation = useMutation({
-    mutationFn: () => postPredict(symbol, ["5m", "15m", "1h", "4h", "1d"]),
-    onSuccess: (data) => {
-      setPredictResult(data);
-      queryClient.invalidateQueries({ queryKey: ["portfolio"] });
-      queryClient.invalidateQueries({ queryKey: ["trades"] });
-    },
-  });
+  const predictResult = predictQuery.data;
 
   const currentPrice = predictResult?.current_price;
   const predictedPrice = predictResult?.predictions?.[timeframe];
@@ -171,17 +178,21 @@ export default function Monitor() {
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             className="px-6 py-2.5 rounded-xl font-medium tracking-wide bg-gradient-to-r from-neon-cyan to-blue-500 text-slate-950 shadow-[0_0_15px_rgba(0,240,255,0.4)] disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-[0_0_25px_rgba(0,240,255,0.6)] transition-all duration-300"
-            onClick={() => predictMutation.mutate()}
-            disabled={predictMutation.isPending}
+            onClick={() => {
+              setTimeLeft(REFRESH_INTERVAL_MS / 1000);
+              predictQuery.refetch();
+              queryClient.invalidateQueries({ queryKey: ["ohlcv", symbol, timeframe] });
+            }}
+            disabled={predictQuery.isFetching}
           >
-            {predictMutation.isPending ? "全时空预测演算中..." : "启动 AI 预测"}
+            {predictQuery.isFetching ? "全时空预测演算中..." : "启动 AI 预测"}
           </motion.button>
         </div>
       </motion.div>
 
-      {predictMutation.isError && (
+      {predictQuery.isError && (
         <motion.div variants={itemVariants} className="bg-rose-500/10 border border-rose-500/50 text-rose-400 p-4 rounded-xl">
-          ⚠️ 预测系统加载失败: {(predictMutation.error as Error).message}
+          ⚠️ 预测系统加载失败: {(predictQuery.error as Error).message}
         </motion.div>
       )}
 
@@ -349,7 +360,7 @@ export default function Monitor() {
                 {sparklineSvg}
                 <div className="flex flex-col items-center relative z-10">
                   <span className="text-lg font-bold text-white leading-tight drop-shadow-md">
-                    ${predTarget.toLocaleString("en-US", { minimumFractionDigits: 2 })}
+                    ${predTarget.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                   <span className={`text-xs font-bold px-2 py-0.5 rounded-full mt-1 ${isPos ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
                     {isPos ? "+" : ""}{chg.toFixed(2)}%
