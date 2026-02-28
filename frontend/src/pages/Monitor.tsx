@@ -341,16 +341,40 @@ export default function Monitor() {
             fundamentals?.funding_rate != null ? fundamentals.funding_rate <= 0 : undefined
           }
         />
-        <MetricCard
-          label="RL 风控期望"
-          value={
-            rlAlignment != null
-              ? (rlAlignment.action === 0 ? "做空 (S)" : rlAlignment.action === 1 ? "观望 (H)" : "做多 (L)")
-              : "未对齐"
-          }
-          delta={rlAlignment != null ? `V: ${rlAlignment.value.toFixed(4)}` : undefined}
-          positive={rlAlignment != null ? rlAlignment.value > 0 : undefined}
-        />
+        {/* Custom RL Value Card with Visual Gauge */}
+        <div className="glass-panel p-3 lg:p-4 rounded-xl flex flex-col justify-between border-t border-white/10 relative overflow-hidden group">
+          <div className="flex justify-between items-center z-10">
+            <span className="text-xs lg:text-sm font-medium text-slate-400 tracking-tighter">RL 风控期望</span>
+          </div>
+          <div className="mt-2 md:mt-3 z-10 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className={`text-xl lg:text-2xl font-bold ${rlAlignment != null ? 'text-white' : 'text-slate-500'}`}>
+                {rlAlignment != null
+                  ? (rlAlignment.action === 0 ? "做空 (S)" : rlAlignment.action === 1 ? "观望 (H)" : "做多 (L)")
+                  : "未对齐"}
+              </span>
+              {rlAlignment != null && (
+                <span className={`text-[10px] lg:text-xs font-bold px-1.5 py-0.5 rounded-sm tabular-nums ${rlAlignment.value > 0.05 ? 'bg-emerald-500/20 text-emerald-400' :
+                    rlAlignment.value < -0.05 ? 'bg-rose-500/20 text-rose-500' :
+                      'bg-slate-500/20 text-slate-300'
+                  }`}>
+                  V: {rlAlignment.value > 0 ? "+" : ""}{rlAlignment.value.toFixed(4)}
+                </span>
+              )}
+            </div>
+            <div className="w-full relative h-[6px] mt-1">
+              {/* Gradient background track */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-rose-500 via-slate-500 to-emerald-500 opacity-70" />
+              {/* Indicator thumb: Value mapped from [-1.0, 1.0] to [0%, 100%] */}
+              {rlAlignment != null && (
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 w-2 h-2.5 bg-white border border-slate-800 rounded-[2px] shadow-sm shadow-black/50 transition-all duration-700 ease-out z-10"
+                  style={{ left: `calc(${Math.min(100, Math.max(0, ((rlAlignment.value + 1) / 2) * 100))}% - 4px)` }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
       </motion.div>
 
       {/* Multi-Timeframe Signals */}
