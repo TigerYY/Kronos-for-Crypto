@@ -248,7 +248,7 @@ class DataFetcher:
         if is_swap(symbol):
             base_sym = BINANCE_SWAP_SYMBOLS[symbol]
         elif is_crypto(symbol):
-            base_sym = symbol.replace('/', '') + "T" # e.g. BTC/USDT -> BTCUSDT
+            base_sym = symbol.replace('/', '') # e.g. BTC/USDT -> BTCUSDT
         else:
             return 0.0 # 传统金融无资金费率
 

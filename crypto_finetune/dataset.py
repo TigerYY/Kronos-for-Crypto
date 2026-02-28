@@ -39,16 +39,27 @@ class CryptoDataset(Dataset):
         self.feature_list = ['open', 'high', 'low', 'close', 'volume']
         self.time_feature_list = ['minute', 'hour', 'weekday', 'day', 'month']
         
+        # Check for external fundamental features (Phase 2)
+        self.ext_feature_list = []
+        if 'fgi_value' in df.columns and 'fundingRate' in df.columns:
+            self.ext_feature_list = ['fgi_value', 'fundingRate']
+            print(f"Detected Multi-Modal External Features: {self.ext_feature_list}")
+        
         # In case 'amount' is missing in standard OHLCV, approximate it
         if 'amount' not in df.columns:
             df['amount'] = df['volume'] * df['close']
         self.feature_list.append('amount')
             
-        # Clean data
-        df = df[self.feature_list + self.time_feature_list].ffill().fillna(0)
+        # Clean data (Forward fill external features just in case of daily sparse updates)
+        df = df[self.feature_list + self.time_feature_list + self.ext_feature_list].ffill().fillna(0)
             
         self.data_x = df[self.feature_list].values.astype(np.float32)
         self.data_stamp = df[self.time_feature_list].values.astype(np.float32)
+        
+        if self.ext_feature_list:
+            self.data_ext = df[self.ext_feature_list].values.astype(np.float32)
+        else:
+            self.data_ext = None
         
         self.n_samples = max(0, len(df) - self.window + 1)
         print(f"Loaded {self.n_samples} valid sliding windows of length {self.window}.")
@@ -56,7 +67,7 @@ class CryptoDataset(Dataset):
     def __len__(self) -> int:
         return self.n_samples
         
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> tuple:
         x = self.data_x[idx : idx + self.window].copy()
         x_stamp = self.data_stamp[idx : idx + self.window].copy()
         
@@ -72,4 +83,12 @@ class CryptoDataset(Dataset):
         # Hard clip to prevent extreme outlier hallucination during training
         x = np.clip(x, -5.0, 5.0)
         
+        if self.data_ext is not None:
+            x_ext = self.data_ext[idx : idx + self.window].copy()
+            x_ext_mean = np.mean(x_ext, axis=0)
+            x_ext_std = np.std(x_ext, axis=0)
+            x_ext_std[x_ext_std < 1e-5] = 1.0
+            x_ext = (x_ext - x_ext_mean) / (x_ext_std + 1e-5)
+            return torch.from_numpy(x), torch.from_numpy(x_stamp), torch.from_numpy(x_ext)
+            
         return torch.from_numpy(x), torch.from_numpy(x_stamp)

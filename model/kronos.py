@@ -236,7 +236,7 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
         elif isinstance(module, RMSNorm):
             nn.init.ones_(module.weight)
 
-    def forward(self, s1_ids, s2_ids, stamp=None, padding_mask=None, use_teacher_forcing=False, s1_targets=None):
+    def forward(self, s1_ids, s2_ids, stamp=None, padding_mask=None, use_teacher_forcing=False, s1_targets=None, ext_embeds=None):
         """
         Args:
             s1_ids (torch.Tensor): Input tensor of s1 token IDs. Shape: [batch_size, seq_len]
@@ -245,6 +245,7 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
             padding_mask (torch.Tensor, optional): Mask for padding tokens. Shape: [batch_size, seq_len]. Defaults to None.
             use_teacher_forcing (bool, optional): Whether to use teacher forcing for s1 decoding. Defaults to False.
             s1_targets (torch.Tensor, optional): Target s1 token IDs for teacher forcing. Shape: [batch_size, seq_len]. Defaults to None.
+            ext_embeds (torch.Tensor, optional): Deep Conditional Injection from external factors. Shape: [batch_size, seq_len, d_model]. Defaults to None.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]:
@@ -255,6 +256,11 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
         if stamp is not None:
             time_embedding = self.time_emb(stamp)
             x = x + time_embedding
+            
+        # Multi-Modal Deep Conditional Injection (Phase 2 MLP add-on)
+        if ext_embeds is not None:
+            x = x + ext_embeds
+            
         x = self.token_drop(x)
 
         for layer in self.transformer:
@@ -275,7 +281,7 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
         s2_logits = self.head.cond_forward(x2)
         return s1_logits, s2_logits
 
-    def decode_s1(self, s1_ids, s2_ids, stamp=None, padding_mask=None):
+    def decode_s1(self, s1_ids, s2_ids, stamp=None, padding_mask=None, ext_embeds=None):
         """
         Decodes only the s1 tokens.
 
@@ -287,6 +293,7 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
             s2_ids (torch.Tensor): Input tensor of s2 token IDs. Shape: [batch_size, seq_len]
             stamp (torch.Tensor, optional): Temporal stamp tensor. Shape: [batch_size, seq_len]. Defaults to None.
             padding_mask (torch.Tensor, optional): Mask for padding tokens. Shape: [batch_size, seq_len]. Defaults to None.
+            ext_embeds (torch.Tensor, optional): Deep Conditional Injection from external factors. Shape: [batch_size, seq_len, d_model]. Defaults to None.
 
         Returns:
             Tuple[torch.Tensor, torch.Tensor]:
@@ -297,6 +304,11 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
         if stamp is not None:
             time_embedding = self.time_emb(stamp)
             x = x + time_embedding
+            
+        # Multi-Modal Deep Conditional Injection (Phase 2 MLP add-on)
+        if ext_embeds is not None:
+            x = x + ext_embeds
+            
         x = self.token_drop(x)
 
         for layer in self.transformer:
