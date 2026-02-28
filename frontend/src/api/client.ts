@@ -38,6 +38,13 @@ export type PredictResponse = {
     change_pct: number;
     reasons: string[];
   };
+  fundamentals?: {
+    fgi: {
+      value: string;
+      classification: string;
+    };
+    funding_rate: number;
+  };
   lookback: number;
   pred_len: number;
 };

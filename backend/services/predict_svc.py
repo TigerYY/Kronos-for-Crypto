@@ -58,6 +58,15 @@ def run_predict(
 
     signal = sim.strategy.generate_signal(predictions, current_price)
 
+    # Fetch fundamental factors (Phase 2)
+    try:
+        fgi = sim.data_fetcher.fetch_fgi()
+        funding_rate = sim.data_fetcher.fetch_funding_rate(symbol)
+    except Exception as e:
+        print(f"[PredictSvc] Error fetching fundamentals: {e}")
+        fgi = {'value': '50', 'classification': 'Neutral'}
+        funding_rate = 0.0
+
     return {
         "current_price": current_price,
         "predictions": {k: v for k, v in predictions.items() if v is not None},
@@ -67,6 +76,10 @@ def run_predict(
             "confidence": signal.confidence,
             "change_pct": signal.change_pct,
             "reasons": signal.reasons,
+        },
+        "fundamentals": {
+            "fgi": fgi,
+            "funding_rate": funding_rate,
         },
         "lookback": LOOKBACK,
         "pred_len": PRED_LEN,

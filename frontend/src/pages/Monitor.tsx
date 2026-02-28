@@ -99,6 +99,7 @@ export default function Monitor() {
   const currentPrice = predictResult?.current_price;
   const predictedPrice = predictResult?.predictions?.[timeframe];
   const signal = predictResult?.signal;
+  const fundamentals = predictResult?.fundamentals;
   const predSeries = predictResult?.pred_series?.[timeframe];
   const portfolio = queryClient.getQueryData(["portfolio"]) as
     | { balance: number; positions: Record<string, number> }
@@ -207,7 +208,7 @@ export default function Monitor() {
       )}
 
       {/* KPI Metrics */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         <MetricCard
           label="当前标记价格"
           value={
@@ -258,6 +259,30 @@ export default function Monitor() {
           }
           positive={
             totalValue != null ? totalValue >= INITIAL_BALANCE : undefined
+          }
+        />
+        <MetricCard
+          label="宏观恐慌贪婪 (FGI)"
+          value={fundamentals?.fgi?.value ?? "—"}
+          delta={fundamentals?.fgi?.classification}
+          positive={
+            fundamentals?.fgi?.value != null ? Number(fundamentals.fgi.value) >= 50 : undefined
+          }
+        />
+        <MetricCard
+          label="实时资金费率 (Funding)"
+          value={
+            fundamentals?.funding_rate != null
+              ? `${(fundamentals.funding_rate * 100).toFixed(4)}%`
+              : "—"
+          }
+          delta={
+            fundamentals?.funding_rate != null
+              ? (fundamentals.funding_rate > 0 ? "多头付空头" : fundamentals.funding_rate < 0 ? "空头付多头" : "基准费率")
+              : undefined
+          }
+          positive={
+            fundamentals?.funding_rate != null ? fundamentals.funding_rate <= 0 : undefined
           }
         />
       </motion.div>

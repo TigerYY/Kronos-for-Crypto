@@ -227,6 +227,42 @@ class DataFetcher:
             print(f"[DataFetcher] 获取 {symbol} 实时价格失败: {e}")
         return 0.0
 
+    def fetch_fgi(self) -> Dict[str, str]:
+        """获取实时的恐惧贪婪指数 (Fear & Greed Index)"""
+        try:
+            import requests
+            resp = requests.get('https://api.alternative.me/fng/?limit=1', timeout=5)
+            if resp.status_code == 200:
+                data = resp.json().get('data', [])
+                if data:
+                    return {
+                        'value': data[0]['value'],
+                        'classification': data[0]['value_classification']
+                    }
+        except Exception as e:
+            print(f"[DataFetcher] 获取 FGI 失败: {e}")
+        return {'value': '50', 'classification': 'Neutral'}
+
+    def fetch_funding_rate(self, symbol: str) -> float:
+        """获取目标币种在 Binance 永续合约的实时资金费率"""
+        if is_swap(symbol):
+            base_sym = BINANCE_SWAP_SYMBOLS[symbol]
+        elif is_crypto(symbol):
+            base_sym = symbol.replace('/', '') + "T" # e.g. BTC/USDT -> BTCUSDT
+        else:
+            return 0.0 # 传统金融无资金费率
+
+        try:
+            # 去除冒号后缀(如果是USDT-M的特殊标识)
+            base_sym = base_sym.split(':')[0]
+            # ccxt 本身支持 fetch_funding_rate，或者直接调用 implicit API
+            # 这里调用 implicit API 确保拿到的是确切的实盘挂牌费率
+            res = self.swap_exchange.fapiPublicGetPremiumIndex({'symbol': base_sym})
+            return float(res.get('lastFundingRate', 0.0))
+        except Exception as e:
+            print(f"[DataFetcher] 获取 {symbol} 资金费率失败: {e}")
+        return 0.0
+
     # ------------------------------------------------------------------ #
     # 加密货币数据源（ccxt Binance）
     # ------------------------------------------------------------------ #
