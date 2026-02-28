@@ -295,21 +295,23 @@ export default function Monitor() {
         <div className="glass-panel p-3 lg:p-4 rounded-xl flex flex-col justify-between border-t border-white/10 relative overflow-hidden group">
           <div className="flex justify-between items-center z-10">
             <span className="text-xs lg:text-sm font-medium text-slate-400 tracking-tighter">全球恐慌贪婪</span>
-            {fundamentals?.fgi?.value != null && (
-              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${Number(fundamentals.fgi.value) < 25 ? 'bg-rose-500/20 text-rose-500' :
+          </div>
+          <div className="mt-2 md:mt-3 z-10 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <span className={`text-xl lg:text-2xl font-bold tabular-nums ${fundamentals?.fgi?.value != null ? 'text-white' : 'text-slate-500'}`}>
+                {fundamentals?.fgi?.value != null ? fundamentals.fgi.value : "—"}
+              </span>
+              {fundamentals?.fgi?.value != null && (
+                <span className={`text-[10px] lg:text-xs font-bold px-1.5 py-0.5 rounded-sm ${Number(fundamentals.fgi.value) < 25 ? 'bg-rose-500/20 text-rose-500' :
                   Number(fundamentals.fgi.value) < 45 ? 'bg-orange-500/20 text-orange-500' :
                     Number(fundamentals.fgi.value) < 55 ? 'bg-yellow-500/20 text-yellow-500' :
                       Number(fundamentals.fgi.value) < 75 ? 'bg-emerald-400/20 text-emerald-400' :
                         'bg-green-400/20 text-green-400'
-                }`}>
-                {fundamentals.fgi.classification || "获取中"}
-              </span>
-            )}
-          </div>
-          <div className="mt-2 md:mt-3 z-10 flex flex-col gap-2">
-            <span className={`text-xl lg:text-2xl font-bold tabular-nums ${fundamentals?.fgi?.value != null ? 'text-white' : 'text-slate-500'}`}>
-              {fundamentals?.fgi?.value != null ? fundamentals.fgi.value : "—"}
-            </span>
+                  }`}>
+                  {fundamentals.fgi.classification || "获取中"}
+                </span>
+              )}
+            </div>
             <div className="w-full relative h-[6px] mt-1">
               {/* Gradient background track */}
               <div className="absolute inset-0 rounded-full bg-gradient-to-r from-rose-500 via-yellow-500 to-green-500 opacity-70" />
