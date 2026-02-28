@@ -97,7 +97,6 @@ export default function Monitor() {
   const predictResult = predictQuery.data;
 
   const currentPrice = predictResult?.current_price;
-  const predictedPrice = predictResult?.predictions?.[timeframe];
   const signal = predictResult?.signal;
   const rlAlignment = predictResult?.rl_alignment;
   const fundamentals = predictResult?.fundamentals;
@@ -213,10 +212,19 @@ export default function Monitor() {
       {/* RAG Macro Intervention Radar */}
       {rag && (
         <motion.div
-          variants={itemVariants}
-          animate={isRagAlert ? { scale: [1, 1.02, 1], boxShadow: ["0px 0px 0px rgba(225,29,72,0)", "0px 0px 30px rgba(225,29,72,0.6)", "0px 0px 0px rgba(225,29,72,0)"] } : {}}
-          transition={isRagAlert ? { repeat: Infinity, duration: 2 } : {}}
-          className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-500 ${isRagAlert ? 'bg-rose-950/40 border-rose-500/50 shadow-[0_0_15px_rgba(225,29,72,0.3)]' : 'bg-slate-900/40 border-slate-700/50'}`}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{
+            opacity: 1,
+            y: 0,
+            scale: isRagAlert ? [1, 1.02, 1] : 1,
+            boxShadow: isRagAlert ? ["0px 0px 0px rgba(225,29,72,0)", "0px 0px 30px rgba(225,29,72,0.6)", "0px 0px 0px rgba(225,29,72,0)"] : "none",
+          }}
+          transition={{
+            duration: 0.5,
+            scale: isRagAlert ? { repeat: Infinity, duration: 2 } : { duration: 0.5 },
+            boxShadow: isRagAlert ? { repeat: Infinity, duration: 2 } : { duration: 0.5 }
+          }}
+          className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-500 ${isRagAlert ? 'bg-rose-950/40 border-rose-500/50 shadow-[0_0_15px_rgba(225,29,72,0.3)]' : 'bg-slate-900/40 border-slate-700/50'}`}
         >
           <div className="flex items-center gap-3">
             <div className={`w-3 h-3 rounded-full ${isRagAlert ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
@@ -238,7 +246,7 @@ export default function Monitor() {
       )}
 
       {/* KPI Metrics */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2 lg:gap-3">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 lg:gap-3">
         <MetricCard
           label="当前标记价格"
           value={
@@ -246,20 +254,6 @@ export default function Monitor() {
               ? `$${currentPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               : "—"
           }
-        />
-        <MetricCard
-          label={`${timeframe} 预测目标价`}
-          value={
-            predictedPrice != null
-              ? `$${predictedPrice.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              : "—"
-          }
-          delta={
-            currentPrice != null && predictedPrice != null
-              ? `${((predictedPrice - currentPrice) / currentPrice * 100).toFixed(2)}%`
-              : undefined
-          }
-          positive={currentPrice != null && predictedPrice != null ? predictedPrice >= currentPrice : undefined}
         />
         <div className="flex h-full">
           {signal ? (
