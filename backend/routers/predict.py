@@ -23,3 +23,11 @@ def post_predict(body: PredictRequest):
         error_msg = result.get("details", "") or result.get("error", "Unknown prediction error")
         raise HTTPException(status_code=503, detail=str(error_msg))
     return result
+
+@router.get("/rag")
+def get_rag():
+    """
+    Asynchronously fetch the Macro RAG LLM analysis.
+    Decoupled from core predictions to prevent stalling.
+    """
+    return predict_svc.get_rag_analysis()

@@ -78,7 +78,44 @@ def run_predict(
         fgi = {'value': '50', 'classification': 'Neutral'}
         funding_rate = 0.0
 
-    # Macro RAG Intervention (Phase 3)
+    # System Override Logic (Using last cached RAG decision if available)
+    rag_decision = _rag_cache["decision"] if _rag_cache["decision"] else {
+        "sentiment": "NEUTRAL", 
+        "override_signal": "NONE", 
+        "reason": "Wait for RAG...", 
+        "events": [],
+        "last_updated_time": ""
+    }
+    
+    intercepted_action = signal.action
+    reasons = signal.reasons.copy()
+    if rag_decision.get("override_signal") != "NONE":
+        intercepted_action = rag_decision["override_signal"]
+        reasons.insert(0, f"[MACRO RAG OVERRIDE] {rag_decision.get('reason')}")
+
+    return {
+        "current_price": current_price,
+        "predictions": {k: v for k, v in predictions.items() if v is not None},
+        "pred_series": pred_series,
+        "signal": {
+            "action": intercepted_action,
+            "confidence": signal.confidence,
+            "change_pct": signal.change_pct,
+            "reasons": reasons,
+        },
+        "rl_alignment": rl_data,
+        "fundamentals": {
+            "fgi": fgi,
+            "funding_rate": funding_rate,
+        }
+        # "rag" field is removed from core predict; frontend will fetch it via /rag
+    }
+
+def get_rag_analysis() -> dict:
+    """
+    Dedicated endpoint to fetch and cache LLM RAG analysis.
+    Prevents the LLM inference from blocking core OHLCV and prediction requests.
+    """
     global _rag_cache
     now = time.time()
     if _rag_cache["decision"] is None or (now - _rag_cache["timestamp"] > 300):
@@ -91,7 +128,7 @@ def run_predict(
             # Formulate the updated time
             current_dt_str = datetime.now(timezone.utc).astimezone().strftime("%H:%M")
             
-            # Retain old events if the new fetch failed to produce any (e.g., LLM error)
+            # Retain old events if the new fetch failed to produce any
             if "LLM Error" in new_decision.get("reason", "") or not new_decision.get("events"):
                 old_events = _rag_cache["decision"].get("events", []) if _rag_cache["decision"] else []
                 old_time = _rag_cache["decision"].get("last_updated_time", "") if _rag_cache["decision"] else ""
@@ -115,32 +152,5 @@ def run_predict(
                 "last_updated_time": old_time
             }
             _rag_cache["timestamp"] = now
-    
-    rag_decision = _rag_cache["decision"]
-
-    # System Override Logic
-    intercepted_action = signal.action
-    reasons = signal.reasons.copy()
-    if rag_decision.get("override_signal") != "NONE":
-        intercepted_action = rag_decision["override_signal"]
-        reasons.insert(0, f"[MACRO RAG OVERRIDE] {rag_decision.get('reason')}")
-
-    return {
-        "current_price": current_price,
-        "predictions": {k: v for k, v in predictions.items() if v is not None},
-        "pred_series": pred_series,
-        "signal": {
-            "action": intercepted_action,
-            "confidence": signal.confidence,
-            "change_pct": signal.change_pct,
-            "reasons": reasons,
-        },
-        "rl_alignment": rl_data,
-        "fundamentals": {
-            "fgi": fgi,
-            "funding_rate": funding_rate,
-        },
-        "rag": rag_decision,
-        "lookback": LOOKBACK,
-        "pred_len": PRED_LEN,
-    }
+            
+    return _rag_cache["decision"]

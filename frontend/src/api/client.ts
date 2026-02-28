@@ -99,6 +99,15 @@ export async function postPredict(
   return r.json();
 }
 
+export async function getRag(): Promise<any> {
+  const r = await fetch(`${API_PREFIX}/predict/rag`);
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({ detail: r.statusText }));
+    throw new Error((e as { detail?: string }).detail || "RAG failed");
+  }
+  return r.json();
+}
+
 export type StrategyConfig = {
   threshold?: number;
   strong_threshold?: number;

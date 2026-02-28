@@ -4,6 +4,7 @@ import {
   getOhlcv,
   getTrades,
   postPredict,
+  getRag,
 } from "../api/client";
 import KlineChart from "../components/KlineChart";
 import SignalCard from "../components/SignalCard";
@@ -54,6 +55,13 @@ export default function Monitor() {
     refetchInterval: autoRefresh ? REFRESH_INTERVAL_MS : false,
   });
 
+  // 2.5 获取宏观 RAG 雷达数据 (独立于核心预测数据，避免阻塞 UI)
+  const ragQuery = useQuery({
+    queryKey: ["rag"],
+    queryFn: () => getRag(),
+    refetchInterval: autoRefresh ? REFRESH_INTERVAL_MS : false,
+  });
+
   // 3. 并发获取底部 4 张卡片的微型背景 K 线（只取 50 根）
   const cardTimeframes = ["15m", "1h", "4h", "1d"];
   const cardOhlcvQueries = useQueries({
@@ -100,8 +108,11 @@ export default function Monitor() {
   const signal = predictResult?.signal;
   const rlAlignment = predictResult?.rl_alignment;
   const fundamentals = predictResult?.fundamentals;
-  const rag = predictResult?.rag;
+
+  // RAG 数据改为来自独立的 ragQuery
+  const rag = ragQuery.data;
   const isRagAlert = rag && rag.override_signal !== "NONE";
+
   const predSeries = predictResult?.pred_series?.[timeframe];
   const portfolio = queryClient.getQueryData(["portfolio"]) as
     | { balance: number; positions: Record<string, number> }
