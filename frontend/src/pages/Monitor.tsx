@@ -7,6 +7,7 @@ import {
   getRag,
 } from "../api/client";
 import KlineChart from "../components/KlineChart";
+import MiniKlineChart from "../components/MiniKlineChart";
 import SignalCard from "../components/SignalCard";
 import MetricCard from "../components/MetricCard";
 import { motion, type Variants } from "framer-motion";
@@ -445,12 +446,11 @@ export default function Monitor() {
 
                 <div className="absolute inset-x-0 bottom-0 w-full h-[70%] opacity-90 pointer-events-none">
                   {tfOhlcv.length > 0 && (
-                    <KlineChart
+                    <MiniKlineChart
                       data={tfOhlcv}
                       predSeries={series}
                       symbol={symbol}
                       timeframe={tf}
-                      minimal={true}
                     />
                   )}
                 </div>
