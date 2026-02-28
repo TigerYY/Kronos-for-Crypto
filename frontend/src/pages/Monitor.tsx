@@ -254,7 +254,11 @@ export default function Monitor() {
             </div>
           ) : (
             <div className="flex-1 text-slate-500 text-xs md:text-sm italic whitespace-nowrap overflow-hidden text-ellipsis hidden md:block">
-              {isRagAlert ? rag.reason : "全球嗅探中..."}
+              {rag.reason && (rag.reason.includes("Error") || rag.reason.includes("Offline")) ? (
+                <span className="text-yellow-500/80">⚠️ {rag.reason.includes("503") ? "本地大模型加载拥堵 (GPU资源占用中)，等待重试..." : rag.reason}</span>
+              ) : (
+                "全球嗅探中..."
+              )}
             </div>
           )}
 
