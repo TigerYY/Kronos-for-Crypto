@@ -135,7 +135,7 @@ export default function Monitor() {
       className="space-y-6 pb-20"
     >
       {/* Controls */}
-      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-end gap-4">
+      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-start gap-4">
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center space-x-2 bg-slate-900/50 p-1.5 rounded-xl border border-white/5">
@@ -156,8 +156,8 @@ export default function Monitor() {
                   key={tf}
                   onClick={() => setTimeframe(tf)}
                   className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${timeframe === tf
-                      ? "bg-white/10 text-white shadow-sm"
-                      : "text-slate-400 hover:text-white hover:bg-white/5"
+                    ? "bg-white/10 text-white shadow-sm"
+                    : "text-slate-400 hover:text-white hover:bg-white/5"
                     }`}
                 >
                   {tf}
