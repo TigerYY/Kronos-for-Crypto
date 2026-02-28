@@ -291,14 +291,38 @@ export default function Monitor() {
             totalValue != null ? totalValue >= INITIAL_BALANCE : undefined
           }
         />
-        <MetricCard
-          label="全球恐慌贪婪"
-          value={fundamentals?.fgi?.value ?? "—"}
-          delta={fundamentals?.fgi?.classification}
-          positive={
-            fundamentals?.fgi?.value != null ? Number(fundamentals.fgi.value) >= 50 : undefined
-          }
-        />
+        {/* Custom FGI Card with Visual Gauge */}
+        <div className="glass-panel p-3 lg:p-4 rounded-xl flex flex-col justify-between border-t border-white/10 relative overflow-hidden group">
+          <div className="flex justify-between items-center z-10">
+            <span className="text-xs lg:text-sm font-medium text-slate-400 tracking-tighter">全球恐慌贪婪</span>
+            {fundamentals?.fgi?.value != null && (
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm ${Number(fundamentals.fgi.value) < 25 ? 'bg-rose-500/20 text-rose-500' :
+                  Number(fundamentals.fgi.value) < 45 ? 'bg-orange-500/20 text-orange-500' :
+                    Number(fundamentals.fgi.value) < 55 ? 'bg-yellow-500/20 text-yellow-500' :
+                      Number(fundamentals.fgi.value) < 75 ? 'bg-emerald-400/20 text-emerald-400' :
+                        'bg-green-400/20 text-green-400'
+                }`}>
+                {fundamentals.fgi.classification || "获取中"}
+              </span>
+            )}
+          </div>
+          <div className="mt-2 md:mt-3 z-10 flex flex-col gap-2">
+            <span className={`text-xl lg:text-2xl font-bold tabular-nums ${fundamentals?.fgi?.value != null ? 'text-white' : 'text-slate-500'}`}>
+              {fundamentals?.fgi?.value != null ? fundamentals.fgi.value : "—"}
+            </span>
+            <div className="w-full relative h-[6px] mt-1">
+              {/* Gradient background track */}
+              <div className="absolute inset-0 rounded-full bg-gradient-to-r from-rose-500 via-yellow-500 to-green-500 opacity-70" />
+              {/* Indicator thumb */}
+              {fundamentals?.fgi?.value != null && (
+                <div
+                  className="absolute top-1/2 -translate-y-1/2 w-2 h-2.5 bg-white border border-slate-800 rounded-[2px] shadow-sm shadow-black/50 transition-all duration-700 ease-out z-10"
+                  style={{ left: `calc(${Math.min(100, Math.max(0, Number(fundamentals.fgi.value)))}% - 4px)` }}
+                />
+              )}
+            </div>
+          </div>
+        </div>
         <MetricCard
           label="永续资金费率"
           value={
@@ -357,7 +381,7 @@ export default function Monitor() {
             return (
               <div key={tf} className="glass-panel p-4 rounded-xl flex flex-col border-t border-white/10 hover:bg-white/5 transition-colors relative h-28 overflow-hidden group">
                 <div className="flex justify-between items-start w-full relative z-10">
-                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">{tf} 视图</span>
+                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">{tf} 预测</span>
                   <div className="flex flex-col items-end">
                     <span className="text-sm font-bold text-white leading-tight drop-shadow-md">
                       ${predTarget.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
