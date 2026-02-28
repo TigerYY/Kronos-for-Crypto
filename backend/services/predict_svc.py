@@ -81,17 +81,26 @@ def run_predict(
     # Macro RAG Intervention (Phase 3)
     global _rag_cache
     now = time.time()
-    # Cache RAG decisions for 5 minutes to avoid overwhelming the local LLM
     if _rag_cache["decision"] is None or (now - _rag_cache["timestamp"] > 300):
         try:
             scanner = NewsScanner()
             news = scanner.fetch_latest_news(hours_lookback=4)
             rag_analyzer = RAGAnalyzer()
-            _rag_cache["decision"] = rag_analyzer.analyze_news_sentiment(news)
+            new_decision = rag_analyzer.analyze_news_sentiment(news)
+            
+            # Retain old events if the new fetch failed to produce any (e.g., LLM error)
+            if "LLM Error" in new_decision.get("reason", "") or not new_decision.get("events"):
+                old_events = _rag_cache["decision"].get("events", []) if _rag_cache["decision"] else []
+                if old_events:
+                    new_decision["events"] = old_events
+                    
+            _rag_cache["decision"] = new_decision
             _rag_cache["timestamp"] = now
         except Exception as e:
             print(f"[PredictSvc] RAG fetching error: {e}")
-            _rag_cache["decision"] = {"sentiment": "NEUTRAL", "override_signal": "NONE", "reason": "RAG Offline"}
+            old_events = _rag_cache["decision"].get("events", []) if _rag_cache["decision"] else []
+            _rag_cache["decision"] = {"sentiment": "NEUTRAL", "override_signal": "NONE", "reason": "RAG Offline", "events": old_events}
+            _rag_cache["timestamp"] = now
     
     rag_decision = _rag_cache["decision"]
 

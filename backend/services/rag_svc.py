@@ -12,7 +12,7 @@ from openai import OpenAI
 # 默认使用本地 Ollama 的通用端口
 OLLAMA_API_BASE = os.getenv("OLLAMA_API_BASE", "http://localhost:11434/v1")
 # 支持用户自定义模型名称 (qwen2.5, qwen2.5-coder, deepseek-coder 等)
-OLLAMA_MODEL_NAME = os.getenv("OLLAMA_MODEL_NAME", "deepseek-coder:6.7b")
+OLLAMA_MODEL_NAME = os.getenv("OLLAMA_MODEL_NAME", "deepseek-r1:8b")
 
 class RAGAnalyzer:
     def __init__(self):
@@ -69,15 +69,23 @@ RULES:
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.0, # We want deterministic logic
-                max_tokens=400
+                max_tokens=600
             )
             
-            # 兼容不同模型的输出习惯，清理可能附带的 ```json 标签
             raw_text = response.choices[0].message.content.strip()
+            
+            # 清理 DeepSeek-R1 这种推理模型带有的 <think> 标签块
+            if "<think>" in raw_text and "</think>" in raw_text:
+                parts = raw_text.split("</think>")
+                if len(parts) > 1:
+                    raw_text = "</think>".join(parts[1:]).strip()
+
+            # 兼容不同模型的输出习惯，清理可能附带的 ```json 标签
             if raw_text.startswith("```json"):
-                raw_text = raw_text.replace("```json", "").replace("```", "").strip()
+                raw_text = raw_text.replace("```json", "", 1)
             if raw_text.startswith("```"):
-                raw_text = raw_text.replace("```", "").strip()
+                raw_text = raw_text.replace("```", "", 1)
+            raw_text = raw_text.rstrip("`").strip()
                 
             result = json.loads(raw_text)
             

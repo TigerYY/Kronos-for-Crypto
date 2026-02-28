@@ -254,7 +254,7 @@ export default function Monitor() {
             </div>
           ) : (
             <div className="flex-1 text-slate-500 text-xs md:text-sm italic whitespace-nowrap overflow-hidden text-ellipsis hidden md:block">
-              {isRagAlert ? rag.reason : "正在嗅探全球宏观因子网络..."}
+              {isRagAlert ? rag.reason : "全球嗅探中..."}
             </div>
           )}
 
