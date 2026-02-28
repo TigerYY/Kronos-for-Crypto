@@ -88,18 +88,32 @@ def run_predict(
             rag_analyzer = RAGAnalyzer()
             new_decision = rag_analyzer.analyze_news_sentiment(news)
             
+            # Formulate the updated time
+            current_dt_str = datetime.now(timezone.utc).astimezone().strftime("%H:%M")
+            
             # Retain old events if the new fetch failed to produce any (e.g., LLM error)
             if "LLM Error" in new_decision.get("reason", "") or not new_decision.get("events"):
                 old_events = _rag_cache["decision"].get("events", []) if _rag_cache["decision"] else []
+                old_time = _rag_cache["decision"].get("last_updated_time", "") if _rag_cache["decision"] else ""
                 if old_events:
                     new_decision["events"] = old_events
+                    new_decision["last_updated_time"] = old_time
+            else:
+                new_decision["last_updated_time"] = current_dt_str
                     
             _rag_cache["decision"] = new_decision
             _rag_cache["timestamp"] = now
         except Exception as e:
             print(f"[PredictSvc] RAG fetching error: {e}")
             old_events = _rag_cache["decision"].get("events", []) if _rag_cache["decision"] else []
-            _rag_cache["decision"] = {"sentiment": "NEUTRAL", "override_signal": "NONE", "reason": "RAG Offline", "events": old_events}
+            old_time = _rag_cache["decision"].get("last_updated_time", "") if _rag_cache["decision"] else ""
+            _rag_cache["decision"] = {
+                "sentiment": "NEUTRAL", 
+                "override_signal": "NONE", 
+                "reason": "RAG Offline", 
+                "events": old_events,
+                "last_updated_time": old_time
+            }
             _rag_cache["timestamp"] = now
     
     rag_decision = _rag_cache["decision"]

@@ -54,6 +54,7 @@ export type PredictResponse = {
     override_signal: string;
     reason: string;
     events?: Array<{ text: string; sentiment: string }>;
+    last_updated_time?: string;
   };
   lookback: number;
   pred_len: number;

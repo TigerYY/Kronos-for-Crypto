@@ -262,10 +262,10 @@ export default function Monitor() {
             </div>
           )}
 
-          {/* Override Action Badge */}
-          {isRagAlert && (
-            <div className="px-3 py-1 rounded bg-rose-500/20 text-rose-400 font-bold tracking-widest text-xs md:text-sm border border-rose-500/30 flex-shrink-0">
-              OVERRIDE: {rag.override_signal}
+          {/* Action Badge & Timestamp */}
+          {(isRagAlert || (rag.reason && (rag.reason.includes("Error") || rag.reason.includes("Offline")) && rag.last_updated_time)) && (
+            <div className={`px-3 py-1 rounded font-bold tracking-widest text-xs md:text-sm border flex-shrink-0 ${isRagAlert ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-yellow-500/10 text-yellow-500/70 border-yellow-500/20'}`}>
+              {isRagAlert ? `OVERRIDE: ${rag.override_signal}` : `嗅探延迟 (旧缓存: ${rag.last_updated_time})`}
             </div>
           )}
         </motion.div>
