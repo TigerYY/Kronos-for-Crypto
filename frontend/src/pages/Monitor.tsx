@@ -297,12 +297,12 @@ export default function Monitor() {
             <span className="text-[11px] font-medium text-slate-400 tracking-wide">全球恐慌贪婪</span>
           </div>
           <div className="mt-1.5 md:mt-2 z-10 flex flex-col gap-1.5">
-            <div className="flex items-center gap-2">
-              <span className={`text-lg lg:text-xl font-bold tabular-nums tracking-tighter ${fundamentals?.fgi?.value != null ? 'text-white' : 'text-slate-500'}`}>
+            <div className="flex items-center gap-1.5 overflow-hidden">
+              <span className={`text-lg lg:text-xl font-bold tabular-nums tracking-tighter whitespace-nowrap flex-shrink-0 ${fundamentals?.fgi?.value != null ? 'text-white' : 'text-slate-500'}`}>
                 {fundamentals?.fgi?.value != null ? fundamentals.fgi.value : "—"}
               </span>
               {fundamentals?.fgi?.value != null && (
-                <span className={`text-[9px] lg:text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-sm ${Number(fundamentals.fgi.value) < 25 ? 'bg-rose-500/20 text-rose-500' :
+                <span className={`text-[9px] lg:text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-sm flex-shrink-0 truncate ${Number(fundamentals.fgi.value) < 25 ? 'bg-rose-500/20 text-rose-500' :
                   Number(fundamentals.fgi.value) < 45 ? 'bg-orange-500/20 text-orange-500' :
                     Number(fundamentals.fgi.value) < 55 ? 'bg-yellow-500/20 text-yellow-500' :
                       Number(fundamentals.fgi.value) < 75 ? 'bg-emerald-400/20 text-emerald-400' :
@@ -347,14 +347,14 @@ export default function Monitor() {
             <span className="text-[11px] font-medium text-slate-400 tracking-wide">RL 风控期望</span>
           </div>
           <div className="mt-1.5 md:mt-2 z-10 flex flex-col gap-1.5">
-            <div className="flex items-center gap-2">
-              <span className={`text-lg lg:text-xl font-bold tracking-tighter ${rlAlignment != null ? 'text-white' : 'text-slate-500'}`}>
+            <div className="flex items-center gap-1.5 overflow-hidden">
+              <span className={`text-lg lg:text-xl font-bold tracking-tighter whitespace-nowrap flex-shrink-0 ${rlAlignment != null ? 'text-white' : 'text-slate-500'}`}>
                 {rlAlignment != null
                   ? (rlAlignment.action === 0 ? "做空 (S)" : rlAlignment.action === 1 ? "观望 (H)" : "做多 (L)")
                   : "未对齐"}
               </span>
               {rlAlignment != null && (
-                <span className={`text-[9px] lg:text-[10px] font-bold px-1.5 py-0.5 rounded-sm tabular-nums tracking-wide ${rlAlignment.value > 0.05 ? 'bg-emerald-500/20 text-emerald-400' :
+                <span className={`text-[9px] lg:text-[10px] font-bold px-1.5 py-0.5 rounded-sm tabular-nums tracking-wide flex-shrink-0 truncate ${rlAlignment.value > 0.05 ? 'bg-emerald-500/20 text-emerald-400' :
                   rlAlignment.value < -0.05 ? 'bg-rose-500/20 text-rose-500' :
                     'bg-slate-500/20 text-slate-300'
                   }`}>
