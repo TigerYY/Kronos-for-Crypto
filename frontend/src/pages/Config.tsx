@@ -66,11 +66,6 @@ export default function Config() {
       animate="visible"
       className="space-y-6 pb-20"
     >
-      <motion.div variants={itemVariants} className="mb-6">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">策略配置</h1>
-        <p className="text-slate-400 mt-1">动态调整 Kronos 交易策略核心参数 · 仓位风控 · 信号融合</p>
-      </motion.div>
-
       <motion.form variants={itemVariants} onSubmit={handleSubmit} className="space-y-6">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 

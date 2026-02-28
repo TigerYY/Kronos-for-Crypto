@@ -25,20 +25,6 @@ export default function Doc() {
   return (
     <div className="p-8 max-w-5xl mx-auto space-y-12">
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="text-center mb-12"
-      >
-        <h1 className="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500 mb-4 tracking-tight">
-          Kronos 进化纪元
-        </h1>
-        <p className="text-slate-400 text-lg max-w-2xl mx-auto">
-          从金融基础预训练大模型，到工业级加密货币全栈量化系统，再到未来的高阶算力与强化学习对齐之路。
-        </p>
-      </motion.div>
-
-      <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"

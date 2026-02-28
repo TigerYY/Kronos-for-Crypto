@@ -87,11 +87,6 @@ export default function Backtest() {
       animate="visible"
       className="space-y-6 pb-20"
     >
-      <motion.div variants={itemVariants} className="mb-6">
-        <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">回测分析</h1>
-        <p className="text-slate-400 mt-1">基于 Kronos 预测的历史策略回测 · 净值曲线 · 绩效评估</p>
-      </motion.div>
-
       <motion.form variants={itemVariants} onSubmit={handleSubmit} className="glass-panel p-6 rounded-2xl space-y-6 border-t border-l border-white/5">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <label className="flex flex-col space-y-1.5">

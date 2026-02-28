@@ -133,14 +133,8 @@ export default function Monitor() {
       animate="visible"
       className="space-y-6 pb-20"
     >
-      {/* Header & Controls */}
-      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
-            实时预测大盘
-          </h1>
-          <p className="text-slate-400 mt-1">深度学习驱动的多时间框架预测系统</p>
-        </div>
+      {/* Controls */}
+      <motion.div variants={itemVariants} className="flex flex-col md:flex-row md:items-center justify-end gap-4">
 
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center space-x-2 bg-slate-900/50 p-1.5 rounded-xl border border-white/5">

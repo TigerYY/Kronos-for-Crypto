@@ -1,11 +1,31 @@
 import { useState } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getPortfolio } from "../api/client";
 import { motion, AnimatePresence } from "framer-motion";
 
+const PAGE_HEADERS: Record<string, { title: string; subtitle: string }> = {
+  "/": {
+    title: "实时预测大盘",
+    subtitle: "深度学习驱动的多时间框架预测系统",
+  },
+  "/backtest": {
+    title: "量化回测评估",
+    subtitle: "历史数据模拟与策略性能分析",
+  },
+  "/config": {
+    title: "策略引擎配置",
+    subtitle: "模型权重与风险控制参数热调整",
+  },
+  "/doc": {
+    title: "系统文档手册",
+    subtitle: "架构原理与演进历程记录",
+  },
+};
+
 export default function Layout() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const location = useLocation();
 
   const { data: portfolio } = useQuery({
     queryKey: ["portfolio"],
@@ -100,41 +120,44 @@ export default function Layout() {
       {/* Main Content Area */}
       <main className="flex-1 p-4 lg:p-8 h-screen overflow-y-auto relative w-full">
         <div className="max-w-7xl mx-auto flex flex-col min-h-full">
-          {/* Header Row for Toggle Button when Sidebar is collapsed */}
-          <div className="mb-4 flex items-center min-h-12 w-full">
-            <AnimatePresence>
-              {!isSidebarOpen && (
-                <motion.div
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: -20 }}
-                  transition={{ duration: 0.2 }}
-                  className="flex items-center"
-                >
-                  <button
-                    onClick={() => setIsSidebarOpen(true)}
-                    className="p-2 mr-4 glass-panel rounded-xl hover:bg-white/10 transition-colors text-slate-300 hover:text-white shadow-lg flex-shrink-0"
-                    title="展开菜单"
+          {/* Header Row for Page Title Controls */}
+          <div className="mb-4 flex items-center min-h-12 w-full justify-between">
+            <div className="flex items-center">
+              <AnimatePresence>
+                {!isSidebarOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, x: -20, width: 0 }}
+                    animate={{ opacity: 1, x: 0, width: "auto" }}
+                    exit={{ opacity: 0, x: -20, width: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex items-center overflow-hidden"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                    </svg>
-                  </button>
+                    <button
+                      onClick={() => setIsSidebarOpen(true)}
+                      className="p-2 mr-4 glass-panel rounded-xl hover:bg-white/10 transition-colors text-slate-300 hover:text-white shadow-lg flex-shrink-0"
+                      title="展开菜单"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                      </svg>
+                    </button>
+                    <div className="w-px h-6 bg-white/10 mx-2" />
+                  </motion.div>
+                )}
+              </AnimatePresence>
 
-                  <div className="flex flex-col">
-                    <h2 className="text-xl font-bold bg-gradient-to-r from-neon-cyan to-neon-purple bg-clip-text text-transparent">
-                      Kronos Trading
-                    </h2>
-                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
-                      模型驱动 · 实时预测
-                    </p>
-                  </div>
-                </motion.div>
-              )}
-            </AnimatePresence>
+              <div className="flex flex-col ml-2">
+                <h1 className="text-2xl font-bold bg-gradient-to-r from-white to-slate-400 bg-clip-text text-transparent">
+                  {PAGE_HEADERS[location.pathname]?.title ?? "Kronos Trading"}
+                </h1>
+                <p className="text-sm text-slate-400 mt-0.5">
+                  {PAGE_HEADERS[location.pathname]?.subtitle ?? "模型驱动 · 实时预测"}
+                </p>
+              </div>
+            </div>
 
-            {/* Right side spacer or future header content */}
-            <div className="flex-1"></div>
+            {/* Right side spacer for future top-right global actions */}
+            <div id="header-actions" className="flex items-center gap-3"></div>
           </div>
 
           {/* Outlet Container */}
