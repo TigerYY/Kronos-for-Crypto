@@ -45,6 +45,11 @@ export type PredictResponse = {
     };
     funding_rate: number;
   };
+  rag?: {
+    sentiment: string;
+    override_signal: string;
+    reason: string;
+  };
   lookback: number;
   pred_len: number;
 };

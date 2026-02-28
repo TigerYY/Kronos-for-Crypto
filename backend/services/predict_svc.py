@@ -10,7 +10,11 @@ if ROOT not in sys.path:
 
 # Import after path fix
 from crypto_simulator import CryptoSimulator, LOOKBACK, PRED_LEN
+from backend.services.rag_svc import RAGAnalyzer
+from trading.news_scanner import NewsScanner
+import time
 
+_rag_cache = {"timestamp": 0, "decision": None}
 _simulator: CryptoSimulator | None = None
 DEFAULT_TIMEFRAMES = ["5m", "15m", "1h", "4h", "1d"]
 
@@ -67,20 +71,45 @@ def run_predict(
         fgi = {'value': '50', 'classification': 'Neutral'}
         funding_rate = 0.0
 
+    # Macro RAG Intervention (Phase 3)
+    global _rag_cache
+    now = time.time()
+    # Cache RAG decisions for 5 minutes to avoid overwhelming the local LLM
+    if _rag_cache["decision"] is None or (now - _rag_cache["timestamp"] > 300):
+        try:
+            scanner = NewsScanner()
+            news = scanner.fetch_latest_news(hours_lookback=4)
+            rag_analyzer = RAGAnalyzer()
+            _rag_cache["decision"] = rag_analyzer.analyze_news_sentiment(news)
+            _rag_cache["timestamp"] = now
+        except Exception as e:
+            print(f"[PredictSvc] RAG fetching error: {e}")
+            _rag_cache["decision"] = {"sentiment": "NEUTRAL", "override_signal": "NONE", "reason": "RAG Offline"}
+    
+    rag_decision = _rag_cache["decision"]
+
+    # System Override Logic
+    intercepted_action = signal.action
+    reasons = signal.reasons.copy()
+    if rag_decision.get("override_signal") != "NONE":
+        intercepted_action = rag_decision["override_signal"]
+        reasons.insert(0, f"[MACRO RAG OVERRIDE] {rag_decision.get('reason')}")
+
     return {
         "current_price": current_price,
         "predictions": {k: v for k, v in predictions.items() if v is not None},
         "pred_series": pred_series,
         "signal": {
-            "action": signal.action,
+            "action": intercepted_action,
             "confidence": signal.confidence,
             "change_pct": signal.change_pct,
-            "reasons": signal.reasons,
+            "reasons": reasons,
         },
         "fundamentals": {
             "fgi": fgi,
             "funding_rate": funding_rate,
         },
+        "rag": rag_decision,
         "lookback": LOOKBACK,
         "pred_len": PRED_LEN,
     }

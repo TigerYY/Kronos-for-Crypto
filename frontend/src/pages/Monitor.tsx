@@ -100,6 +100,8 @@ export default function Monitor() {
   const predictedPrice = predictResult?.predictions?.[timeframe];
   const signal = predictResult?.signal;
   const fundamentals = predictResult?.fundamentals;
+  const rag = predictResult?.rag;
+  const isRagAlert = rag && rag.override_signal !== "NONE";
   const predSeries = predictResult?.pred_series?.[timeframe];
   const portfolio = queryClient.getQueryData(["portfolio"]) as
     | { balance: number; positions: Record<string, number> }
@@ -204,6 +206,33 @@ export default function Monitor() {
       {predictQuery.isError && (
         <motion.div variants={itemVariants} className="bg-rose-500/10 border border-rose-500/50 text-rose-400 p-4 rounded-xl">
           ⚠️ 预测系统加载失败: {(predictQuery.error as Error).message}
+        </motion.div>
+      )}
+
+      {/* RAG Macro Intervention Radar */}
+      {rag && (
+        <motion.div
+          variants={itemVariants}
+          animate={isRagAlert ? { scale: [1, 1.02, 1], boxShadow: ["0px 0px 0px rgba(225,29,72,0)", "0px 0px 30px rgba(225,29,72,0.6)", "0px 0px 0px rgba(225,29,72,0)"] } : {}}
+          transition={isRagAlert ? { repeat: Infinity, duration: 2 } : {}}
+          className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all duration-500 ${isRagAlert ? 'bg-rose-950/40 border-rose-500/50 shadow-[0_0_15px_rgba(225,29,72,0.3)]' : 'bg-slate-900/40 border-slate-700/50'}`}
+        >
+          <div className="flex items-center gap-3">
+            <div className={`w-3 h-3 rounded-full ${isRagAlert ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
+            <div>
+              <h3 className={`text-sm tracking-widest uppercase font-bold ${isRagAlert ? 'text-rose-400' : 'text-slate-400'}`}>
+                {isRagAlert ? "MACRO RAG INTERVENTION ACTIVE" : "Macro RAG Radar: Neural System Safe"}
+              </h3>
+              {isRagAlert && (
+                <p className="text-white mt-1 text-sm">{rag.reason || "Extreme macro volatility detected."}</p>
+              )}
+            </div>
+          </div>
+          {isRagAlert && (
+            <div className="px-4 py-1.5 rounded bg-rose-500/20 text-rose-400 font-bold tracking-widest text-sm border border-rose-500/30">
+              OVERRIDE: {rag.override_signal}
+            </div>
+          )}
         </motion.div>
       )}
 
