@@ -44,26 +44,47 @@ export default function KlineChart({ data, predSeries, symbol, timeframe, minima
     };
   }, [data]);
 
-  const predTrace = useMemo(() => {
+  const predCandleTrace = useMemo(() => {
     if (!predSeries?.length || !data?.length) return null;
     const lastTsStr = data[data.length - 1].timestamps;
     const lastClose = close.length ? close[close.length - 1] : 0;
-    // 使用与 K 线一致的 x 轴：统一为时间戳（毫秒），避免格式混用导致错位与断裂
+
+    // 使用与 K 线一致的 x 轴：统一为时间戳（毫秒）
     let lastMs = parseToMs(lastTsStr);
-    const predXMs: number[] = [lastMs];
+    const predXMs: number[] = [];
+
+    const pOpen: number[] = [];
+    const pHigh: number[] = [];
+    const pLow: number[] = [];
+    const pClose: number[] = [];
+
+    let prevClose = lastClose;
+
+    // 针对每个预测点位，构造一个前日收盘 -> 今日收盘 的无影线实体 K 线 (Marubozu)
     for (let i = 0; i < predSeries.length; i++) {
       lastMs = addIntervalMs(lastMs, timeframe);
       predXMs.push(lastMs);
+
+      const currPred = predSeries[i];
+      pOpen.push(prevClose);
+      pClose.push(currPred);
+      pHigh.push(Math.max(prevClose, currPred));
+      pLow.push(Math.min(prevClose, currPred));
+
+      prevClose = currPred;
     }
-    const predY = [lastClose, ...predSeries];
+
     return {
       x: predXMs,
-      y: predY,
-      type: "scatter",
-      mode: "lines",
-      name: "Kronos 预测",
-      line: { color: "#f39c12", width: minimal ? 4 : 2.5, dash: "dash" },
-      connectgaps: true,
+      open: pOpen,
+      high: pHigh,
+      low: pLow,
+      close: pClose,
+      type: "candlestick",
+      name: "AI 预测推演",
+      // 使用带透明度的特殊颜色，区分出“预测虚线感”
+      increasing: { line: { color: "rgba(52, 211, 153, 0.5)", width: 2 }, fillcolor: "rgba(52, 211, 153, 0.3)" },
+      decreasing: { line: { color: "rgba(251, 113, 133, 0.5)", width: 2 }, fillcolor: "rgba(251, 113, 133, 0.3)" },
     };
   }, [predSeries, data, close, timeframe]);
 
@@ -80,7 +101,7 @@ export default function KlineChart({ data, predSeries, symbol, timeframe, minima
       decreasing: { line: { color: "#ff4757" } },
     },
   ];
-  if (predTrace) traces.push(predTrace);
+  if (predCandleTrace) traces.push(predCandleTrace);
 
   return (
     <Plot
@@ -89,23 +110,26 @@ export default function KlineChart({ data, predSeries, symbol, timeframe, minima
         template: "plotly_dark",
         paper_bgcolor: minimal ? "rgba(0,0,0,0)" : "#0d1117",
         plot_bgcolor: minimal ? "rgba(0,0,0,0)" : "#0d1117",
-        height: minimal ? 180 : 500,
+        height: minimal ? undefined : 500,
         title: minimal ? undefined : `${symbol} · ${timeframe}`,
+        dragmode: minimal ? false : "zoom",
         xaxis: {
           type: "date",
           rangeslider: { visible: false },
           gridcolor: "#1e2a3a",
           visible: !minimal,
+          fixedrange: minimal,
         },
         yaxis: {
           gridcolor: "#1e2a3a",
           visible: !minimal,
+          fixedrange: minimal,
         },
         margin: minimal ? { t: 5, b: 5, l: 5, r: 5 } : { t: 40, b: 40, l: 60, r: 40 },
         showlegend: false,
       }}
-      config={minimal ? { displayModeBar: false, responsive: true } : { responsive: true }}
-      style={{ width: "100%" }}
+      config={minimal ? { displayModeBar: false, responsive: true, staticPlot: true } : { responsive: true }}
+      style={minimal ? { width: "100%", height: "100%" } : { width: "100%" }}
     />
   );
 }

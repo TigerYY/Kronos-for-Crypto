@@ -127,8 +127,35 @@ class DataFetcher:
         else:
             df = self._fetch_yfinance(symbol, timeframe, limit)
 
+        df = self._pad_dataframe(df, limit)
+
         self._cache[cache_key] = (time.time(), df)
         return df.copy()
+
+    def _pad_dataframe(self, df: pd.DataFrame, target_len: int) -> pd.DataFrame:
+        """用首行数据反向填补序列长度，满足模型所需的最小 Lookback Context"""
+        if df.empty or len(df) >= target_len:
+            return df
+            
+        pad_len = target_len - len(df)
+        first_row = df.iloc[[0]].copy()
+        
+        diff = pd.Timedelta(days=1)
+        if len(df) > 1:
+            diff = df['timestamps'].iloc[1] - df['timestamps'].iloc[0]
+            
+        pad_dfs = [first_row] * pad_len
+        pad_df = pd.concat(pad_dfs, ignore_index=True)
+        
+        first_ts = df['timestamps'].iloc[0]
+        pad_ts = [first_ts - diff * (pad_len - i) for i in range(pad_len)]
+        pad_df['timestamps'] = pad_ts
+        
+        # 填充数据的成交量归零以降低杂音
+        pad_df['volume'] = 0.0
+        pad_df['amount'] = 0.0
+        
+        return pd.concat([pad_df, df], ignore_index=True)
 
     def fetch_multi_timeframe(
         self,
@@ -142,7 +169,8 @@ class DataFetcher:
             try:
                 result[tf] = self.fetch_ohlcv(symbol, tf, limit)
             except Exception as e:
-                print(f"[DataFetcher] 获取 {symbol} {tf} 失败: {e}")
+                import traceback
+                print(f"[DataFetcher] 获取 {symbol} {tf} 失败: {e}\n{traceback.format_exc()}")
                 result[tf] = None
         return result
 

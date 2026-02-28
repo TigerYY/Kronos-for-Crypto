@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueries, useQueryClient } from "@tanstack/react-query";
 import {
   getOhlcv,
   getTrades,
@@ -52,6 +52,16 @@ export default function Monitor() {
     queryKey: ["predict", symbol],
     queryFn: () => postPredict(symbol, ["5m", "15m", "1h", "4h", "1d"]),
     refetchInterval: autoRefresh ? REFRESH_INTERVAL_MS : false,
+  });
+
+  // 3. 并发获取底部 4 张卡片的微型背景 K 线（只取 50 根）
+  const cardTimeframes = ["15m", "1h", "4h", "1d"];
+  const cardOhlcvQueries = useQueries({
+    queries: cardTimeframes.map((tf) => ({
+      queryKey: ["ohlcv", symbol, tf, "cards"],
+      queryFn: () => getOhlcv(symbol, tf, 4),
+      refetchInterval: autoRefresh ? REFRESH_INTERVAL_MS : false,
+    })),
   });
 
   // 预测数据更新后，自动刷新账户资金与交易记录
@@ -226,9 +236,9 @@ export default function Monitor() {
               <SignalCard action={signal.action} />
             </div>
           ) : (
-            <div className="w-full h-full glass-panel rounded-2xl p-6 flex flex-col justify-center items-center opacity-70">
-              <div className="text-sm font-medium tracking-widest uppercase mb-1">综合信号</div>
-              <div className="text-3xl font-black tracking-tight text-slate-500">—</div>
+            <div className="w-full h-full glass-panel rounded-2xl p-4 lg:p-5 flex flex-col justify-center items-center opacity-70">
+              <div className="text-xs font-medium tracking-widest uppercase mb-1">综合信号</div>
+              <div className="text-2xl font-black tracking-tight text-slate-500">—</div>
             </div>
           )}
         </div>
@@ -305,9 +315,10 @@ export default function Monitor() {
           多时间框架信号
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          {["15m", "1h", "4h", "1d"].map((tf) => {
+          {cardTimeframes.map((tf, index) => {
             const predTarget = predictResult?.predictions?.[tf];
             const series = predictResult?.pred_series?.[tf];
+            const tfOhlcv = cardOhlcvQueries[index].data || [];
 
             if (predTarget == null) {
               return (
@@ -324,47 +335,30 @@ export default function Monitor() {
                 : 0;
             const isPos = chg >= 0;
 
-            // Generate minimal sparkline SVG logic
-            let sparklineSvg = null;
-            if (series && series.length > 0) {
-              // Combine current price as starting point
-              const fullSeries = [currentPrice ?? series[0], ...series];
-              const minStr = Math.min(...fullSeries);
-              const maxStr = Math.max(...fullSeries);
-              const range = maxStr - minStr || 1;
-              const points = fullSeries.map((v, i) => {
-                const x = (i / (fullSeries.length - 1)) * 100;
-                // Pad top and bottom margins (10-90)
-                const y = 90 - ((v - minStr) / range) * 80;
-                return `${x},${y}`;
-              }).join(" ");
-
-              const strokeColor = isPos ? 'rgba(52, 211, 153, 0.6)' : 'rgba(251, 113, 133, 0.6)'; // emerald or rose with opacity
-              const fillColor = isPos ? 'rgba(52, 211, 153, 0.1)' : 'rgba(251, 113, 133, 0.1)';
-
-              sparklineSvg = (
-                <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-x-0 bottom-0 w-full h-1/2 opacity-60">
-                  {/* Fill area */}
-                  <polygon points={`0,100 ${points} 100,100`} fill={fillColor} />
-                  {/* Line */}
-                  <polyline points={points} fill="none" stroke={strokeColor} strokeWidth="3" strokeLinejoin="round" />
-                  {/* Ending Dot */}
-                  <circle cx="100" cy={90 - ((fullSeries[fullSeries.length - 1] - minStr) / range) * 80} r="3" fill={isPos ? '#34d399' : '#fb7185'} />
-                </svg>
-              );
-            }
-
             return (
-              <div key={tf} className="glass-panel py-3 px-4 rounded-xl flex flex-col items-center justify-between border-t border-white/10 hover:bg-white/5 transition-colors relative h-28 overflow-hidden group">
-                <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider relative z-10">{tf} 视图</span>
-                {sparklineSvg}
-                <div className="flex flex-col items-center relative z-10">
-                  <span className="text-lg font-bold text-white leading-tight drop-shadow-md">
-                    ${predTarget.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                  </span>
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full mt-1 ${isPos ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
-                    {isPos ? "+" : ""}{chg.toFixed(2)}%
-                  </span>
+              <div key={tf} className="glass-panel p-4 rounded-xl flex flex-col border-t border-white/10 hover:bg-white/5 transition-colors relative h-28 overflow-hidden group">
+                <div className="flex justify-between items-start w-full relative z-10">
+                  <span className="text-xs text-slate-400 font-semibold uppercase tracking-wider">{tf} 视图</span>
+                  <div className="flex flex-col items-end">
+                    <span className="text-sm font-bold text-white leading-tight drop-shadow-md">
+                      ${predTarget.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-sm mt-0.5 ${isPos ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'}`}>
+                      {isPos ? "+" : ""}{chg.toFixed(2)}%
+                    </span>
+                  </div>
+                </div>
+
+                <div className="absolute inset-x-0 bottom-0 w-full h-[70%] opacity-90 pointer-events-none">
+                  {tfOhlcv.length > 0 && (
+                    <KlineChart
+                      data={tfOhlcv}
+                      predSeries={series}
+                      symbol={symbol}
+                      timeframe={tf}
+                      minimal={true}
+                    />
+                  )}
                 </div>
               </div>
             );

@@ -18,10 +18,10 @@ export default function SignalCard({ action }: SignalCardProps) {
   return (
     <motion.div
       whileHover={{ scale: 1.05 }}
-      className={`rounded-2xl border p-5 lg:p-6 flex flex-col justify-center items-center backdrop-blur-md w-full h-full ${colorClasses}`}
+      className={`rounded-2xl border p-4 lg:p-5 flex flex-col justify-center items-center backdrop-blur-md w-full h-full ${colorClasses}`}
     >
-      <div className="text-sm font-medium tracking-widest uppercase opacity-80 mb-2">综合信号</div>
-      <div className="text-2xl lg:text-3xl font-black tracking-tight flex items-center gap-2">
+      <div className="text-xs font-medium tracking-widest uppercase opacity-80 mb-1">综合信号</div>
+      <div className="text-xl lg:text-2xl font-black tracking-tight flex items-center gap-2">
         {isBuy && <span>▲</span>}
         {isSell && <span>▼</span>}
         {!isBuy && !isSell && <span>◆</span>}

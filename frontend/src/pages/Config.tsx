@@ -98,6 +98,16 @@ export default function Config() {
                 <input
                   type="radio"
                   name="lora_adapter"
+                  value="outputs/lora_adapters/lora_BTC_1h.csv"
+                  defaultChecked={config.lora_adapter === "outputs/lora_adapters/lora_BTC_1h.csv"}
+                  className="w-5 h-5 bg-slate-900 border-white/20 checked:bg-indigo-500 checked:border-indigo-500 focus:ring-indigo-500/50 focus:ring-offset-slate-950 transition-all cursor-pointer appearance-none rounded-full border-2 checked:border-4"
+                />
+                <span className="text-white group-hover:text-indigo-300 transition-colors bg-indigo-500/20 px-2 py-0.5 rounded text-sm font-semibold border border-indigo-500/30">🎯 BTC/USDT 1H 专家狙击型 (1H Specialist)</span>
+              </label>
+              <label className="flex items-center gap-3 cursor-pointer group">
+                <input
+                  type="radio"
+                  name="lora_adapter"
                   value="outputs/lora_adapters/lora_BTC_USDT"
                   defaultChecked={config.lora_adapter === "outputs/lora_adapters/lora_BTC_USDT"}
                   className="w-5 h-5 bg-slate-900 border-white/20 checked:bg-indigo-500 checked:border-indigo-500 focus:ring-indigo-500/50 focus:ring-offset-slate-950 transition-all cursor-pointer appearance-none rounded-full border-2 checked:border-4"
