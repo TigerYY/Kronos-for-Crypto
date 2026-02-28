@@ -150,18 +150,20 @@ export default function Monitor() {
                 </option>
               ))}
             </select>
-            <div className="w-px h-6 bg-white/10" />
-            <select
-              value={timeframe}
-              onChange={(e) => setTimeframe(e.target.value)}
-              className="bg-transparent border-none text-white focus:ring-0 cursor-pointer outline-none rounded-lg px-3 py-1.5 hover:bg-white/5 transition-colors"
-            >
+            <div className="flex items-center gap-1 pl-2 border-l border-white/5">
               {TIMEFRAMES.map((tf) => (
-                <option key={tf} value={tf} className="bg-slate-900 text-white">
+                <button
+                  key={tf}
+                  onClick={() => setTimeframe(tf)}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${timeframe === tf
+                      ? "bg-white/10 text-white shadow-sm"
+                      : "text-slate-400 hover:text-white hover:bg-white/5"
+                    }`}
+                >
                   {tf}
-                </option>
+                </button>
               ))}
-            </select>
+            </div>
             <div className="w-px h-6 bg-white/10 mx-1" />
             <button
               onClick={() => {
