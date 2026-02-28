@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { createChart, ColorType, CrosshairMode, CandlestickSeries, LineSeries } from "lightweight-charts";
+import { createChart, ColorType, CrosshairMode, CandlestickSeries, LineSeries, HistogramSeries } from "lightweight-charts";
 import type { Time } from "lightweight-charts";
 import type { OhlcvBar } from "../api/client";
 
@@ -80,10 +80,34 @@ export default function KlineChart({ data, predSeries, symbol, timeframe, minima
         high: b.high,
         low: b.low,
         close: b.close,
+        volume: b.volume || 0,
       }));
       // lightweight-charts requires data to be strictly sorted by time ascending
       tvData.sort((a, b) => (a.time as number) - (b.time as number));
       candleSeries.setData(tvData);
+
+      // Add Volume Series at the bottom
+      const volumeSeries = chart.addSeries(HistogramSeries, {
+        priceFormat: {
+          type: "volume",
+        },
+        priceScaleId: "", // Sets as an overlay without sharing main price scale
+      });
+
+      // Position the volume histogram at the bottom 25% of the screen
+      chart.priceScale("").applyOptions({
+        scaleMargins: {
+          top: 0.75, // Leave top 75% for candles
+          bottom: 0,
+        },
+      });
+
+      const volumeData = tvData.map((d) => ({
+        time: d.time,
+        value: d.volume,
+        color: d.close >= d.open ? "#10b98180" : "#f43f5e80", // 50% opacity emerald/rose
+      }));
+      volumeSeries.setData(volumeData);
     }
 
     // 3. Add AI Prediction Projection Overlay (Line)
