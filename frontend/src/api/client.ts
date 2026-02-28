@@ -38,6 +38,10 @@ export type PredictResponse = {
     change_pct: number;
     reasons: string[];
   };
+  rl_alignment?: {
+    action: number;
+    value: number;
+  };
   fundamentals?: {
     fgi: {
       value: string;

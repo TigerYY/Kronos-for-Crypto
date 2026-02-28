@@ -49,15 +49,22 @@ def run_predict(
     predictions: dict[str, float | None] = {}
     pred_series: dict[str, list[float]] = {}
 
+    rl_data = None
     for tf, df in tf_data.items():
         if df is None or len(df) < LOOKBACK:
             predictions[tf] = None
             continue
         try:
-            pred_df = sim.predict(df)
+            pred_df, rl_res = sim.predict(df)
             predictions[tf] = float(pred_df["close"].iloc[-1])
             pred_series[tf] = pred_df["close"].astype(float).tolist()
-        except Exception:
+            if rl_res is not None and rl_data is None:
+                # Capture the RL result from the shortest timeframe available for prompt action
+                rl_data = rl_res
+        except Exception as e:
+            import traceback
+            print(f"[PredictSvc] Error in sim.predict for {tf}: {e}")
+            traceback.print_exc()
             predictions[tf] = None
 
     signal = sim.strategy.generate_signal(predictions, current_price)
@@ -105,6 +112,7 @@ def run_predict(
             "change_pct": signal.change_pct,
             "reasons": reasons,
         },
+        "rl_alignment": rl_data,
         "fundamentals": {
             "fgi": fgi,
             "funding_rate": funding_rate,

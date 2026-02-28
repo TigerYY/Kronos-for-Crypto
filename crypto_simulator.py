@@ -188,6 +188,7 @@ class CryptoSimulator:
                 self._base_model_obj = self.model_obj
                 
             self.load_lora_adapter(resolved_adapter_path)
+            self.load_rl_heads()
             
             self.predictor = KronosPredictor(
                 self.model_obj, self.tokenizer,
@@ -242,10 +243,48 @@ class CryptoSimulator:
             if hasattr(self, 'predictor'):
                 self.predictor.model = self.model_obj
 
-    def predict(self, df: pd.DataFrame) -> pd.DataFrame:
+    def load_rl_heads(self):
+        """尝试挂载强化学习风控脑 (Actor/Critic)"""
+        if not MODEL_AVAILABLE:
+            return
+            
+        actor_path = "outputs/rl_heads/actor_head.pth"
+        value_path = "outputs/rl_heads/value_head.pth"
+        
+        if os.path.exists(actor_path) and os.path.exists(value_path):
+            try:
+                # Add heads to model object if not already there
+                if not hasattr(self.model_obj, "actor_head"):
+                    d_model = self.model_obj.config.d_model
+                    self.model_obj.actor_head = torch.nn.Linear(d_model, 3).to(self.device)
+                    self.model_obj.value_head = torch.nn.Linear(d_model, 1).to(self.device)
+                    
+                self.model_obj.actor_head.load_state_dict(torch.load(actor_path, map_location=self.device))
+                self.model_obj.value_head.load_state_dict(torch.load(value_path, map_location=self.device))
+                
+                # Ensure they match the dtype of the main model
+                self.model_obj.actor_head = self.model_obj.actor_head.to(torch.float32)
+                self.model_obj.value_head = self.model_obj.value_head.to(torch.float32)
+                
+                # Force entire model to float32 to prevent any MPS autocasting mixed-type bugs
+                self.model_obj = self.model_obj.float()
+                
+                print("[Simulator] 🧠 RL 对齐强化脑已加载，开启绝对收益风控模式！")
+            except Exception as e:
+                print(f"[Simulator] ❌ RL 权重加载失败: {e}")
+        else:
+            print("[Simulator] ℹ️ 未检测到 RL 对齐权重，将使用纯预训练策略")
+
+    def predict(self, df: pd.DataFrame) -> tuple[pd.DataFrame, dict | None]:
         """对单时框 DataFrame 做 Kronos 预测"""
         x_df = df[['open', 'high', 'low', 'close', 'volume', 'amount']].copy()
-        x_ts = df['timestamps'].reset_index(drop=True)
+        
+        # Ensure timestamps are parsed as datetime to support arithmetic
+        if df['timestamps'].dtype == object or isinstance(df['timestamps'].iloc[0], str):
+            x_ts = pd.to_datetime(df['timestamps']).reset_index(drop=True)
+        else:
+            x_ts = df['timestamps'].reset_index(drop=True)
+            
         diff = x_ts.iloc[-1] - x_ts.iloc[-2]
         y_ts = pd.Series([x_ts.iloc[-1] + diff * (i + 1) for i in range(PRED_LEN)])
 
@@ -266,9 +305,9 @@ class CryptoSimulator:
                     'volume': 0,
                     'amount': 0
                 })
-            return pd.DataFrame(mock_data)
+            return pd.DataFrame(mock_data), None
 
-        return self.predictor.predict(
+        pred_df = self.predictor.predict(
             df=x_df,
             x_timestamp=x_ts,
             y_timestamp=y_ts,
@@ -279,6 +318,17 @@ class CryptoSimulator:
             sample_count=1,
             verbose=False,
         )
+        
+        # Check if RL Heads exist
+        rl_data = None
+        if hasattr(self.model_obj, "actor_head") and hasattr(self.model_obj, "value_head"):
+            try:
+                action, value = self.predictor.predict_rl(x_df, x_ts)
+                rl_data = {"action": action, "value": value}
+            except Exception as e:
+                print(f"[Simulator] Error during RL predict: {e}")
+                
+        return pred_df, rl_data
 
     def run_once(self):
         """执行一轮完整的分析 + 交易"""
@@ -301,12 +351,15 @@ class CryptoSimulator:
                     print(f"  [{tf}] 数据不足，跳过")
                     continue
                 try:
-                    pred_df = self.predict(df)
+                    pred_df, rl_data = self.predict(df)
                     predictions_per_tf[tf] = float(pred_df['close'].iloc[-1])
                     current_prices[symbol] = float(df['close'].iloc[-1])
                     print(f"  [{tf}] 当前: {current_prices[symbol]:.2f} → "
                           f"预测: {predictions_per_tf[tf]:.2f} "
                           f"({(predictions_per_tf[tf]-current_prices[symbol])/current_prices[symbol]:+.2%})")
+                    if rl_data:
+                        rl_action_str = ['SHORT', 'HOLD', 'LONG'][rl_data['action']]
+                        print(f"  [{tf}] RL Head 决策: {rl_action_str} | 预期胜率差: {rl_data['value']:.4f}")
                 except Exception as e:
                     predictions_per_tf[tf] = None
                     print(f"  [{tf}] 预测失败: {e}")

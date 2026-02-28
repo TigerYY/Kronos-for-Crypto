@@ -99,6 +99,7 @@ export default function Monitor() {
   const currentPrice = predictResult?.current_price;
   const predictedPrice = predictResult?.predictions?.[timeframe];
   const signal = predictResult?.signal;
+  const rlAlignment = predictResult?.rl_alignment;
   const fundamentals = predictResult?.fundamentals;
   const rag = predictResult?.rag;
   const isRagAlert = rag && rag.override_signal !== "NONE";
@@ -237,7 +238,7 @@ export default function Monitor() {
       )}
 
       {/* KPI Metrics */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
         <MetricCard
           label="当前标记价格"
           value={
@@ -313,6 +314,16 @@ export default function Monitor() {
           positive={
             fundamentals?.funding_rate != null ? fundamentals.funding_rate <= 0 : undefined
           }
+        />
+        <MetricCard
+          label="RL 胜率预期 (Value)"
+          value={
+            rlAlignment != null
+              ? (rlAlignment.action === 0 ? "做空 SHORT" : rlAlignment.action === 1 ? "观望 HOLD" : "做多 LONG")
+              : "未对齐"
+          }
+          delta={rlAlignment != null ? `Adv: ${rlAlignment.value.toFixed(4)}` : undefined}
+          positive={rlAlignment != null ? rlAlignment.value > 0 : undefined}
         />
       </motion.div>
 

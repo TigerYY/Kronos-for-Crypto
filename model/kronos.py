@@ -220,6 +220,11 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
         self.norm = RMSNorm(self.d_model)
         self.dep_layer = DependencyAwareLayer(self.d_model)
         self.head = DualHead(self.s1_bits, self.s2_bits, self.d_model)
+        
+        # RLHF (Phase 4) PPO Heads
+        self.actor_head = nn.Linear(self.d_model, 3) # [Hold, Buy, Sell]
+        self.value_head = nn.Linear(self.d_model, 1) # Estimated Value V(s)
+
         self.apply(self._init_weights)
 
     def _init_weights(self, module):
@@ -259,6 +264,7 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
             
         # Multi-Modal Deep Conditional Injection (Phase 2 MLP add-on)
         if ext_embeds is not None:
+            ext_embeds = ext_embeds.to(x.dtype)
             x = x + ext_embeds
             
         x = self.token_drop(x)
@@ -266,6 +272,10 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
         for layer in self.transformer:
             x = layer(x, key_padding_mask=padding_mask)
 
+        # Ensure normalization happens safely in float32 for MPS
+        x = x.to(torch.float32)
+        if self.norm.weight.dtype != torch.float32:
+            self.norm = self.norm.to(torch.float32)
         x = self.norm(x)
 
         s1_logits = self.head(x)
@@ -280,6 +290,50 @@ class Kronos(nn.Module, PyTorchModelHubMixin):
         x2 = self.dep_layer(x, sibling_embed, key_padding_mask=padding_mask) # Dependency Aware Layer: Condition on s1 embeddings
         s2_logits = self.head.cond_forward(x2)
         return s1_logits, s2_logits
+
+    def forward_rl(self, s1_ids, s2_ids, stamp=None, padding_mask=None, ext_embeds=None):
+        """
+        Special forward pass for Reinforcement Learning (RLHF).
+        Returns Actor logits (3 actions) and Critic Value (1 scalar) per step.
+        """
+        x = self.embedding([s1_ids, s2_ids])
+        if stamp is not None:
+            time_embedding = self.time_emb(stamp)
+            x = x + time_embedding
+            
+        if ext_embeds is not None:
+            ext_embeds = ext_embeds.to(x.dtype)
+            x = x + ext_embeds
+            
+        x = self.token_drop(x)
+
+        for layer in self.transformer:
+            x = layer(x, key_padding_mask=padding_mask)
+
+        # Ensure normalization happens safely in float32 for MPS
+        x = x.to(torch.float32)
+        if hasattr(self, 'norm') and hasattr(self.norm, 'weight') and self.norm.weight.dtype != torch.float32:
+            self.norm = self.norm.to(torch.float32)
+        x = self.norm(x)
+
+        # Ensure computation precision is float32 for MPS stability
+        x_fp32 = x.float()
+        
+        if hasattr(self, 'actor_head'):
+            if self.actor_head.weight.dtype != torch.float32:
+                self.actor_head = self.actor_head.to(torch.float32)
+            actor_logits = self.actor_head(x_fp32)
+        else:
+            actor_logits = None
+            
+        if hasattr(self, 'value_head'):
+            if self.value_head.weight.dtype != torch.float32:
+                self.value_head = self.value_head.to(torch.float32)
+            value = self.value_head(x_fp32).squeeze(-1)
+        else:
+            value = None
+            
+        return actor_logits, value
 
     def decode_s1(self, s1_ids, s2_ids, stamp=None, padding_mask=None, ext_embeds=None):
         """
@@ -570,6 +624,55 @@ class KronosPredictor:
         pred_df['low'] = pred_df[['open', 'close', 'low']].min(axis=1)
         
         return pred_df
+
+    def predict_rl(self, df, x_ts):
+        """
+        Executes a forward pass using the RL Actor-Critic heads
+        Returns:
+            action (int): 0 (Short), 1 (Hold), 2 (Long)
+            value (float): Predicted PnL advantage (state value)
+        """
+        if not isinstance(df, pd.DataFrame):
+            raise ValueError("Input must be a pandas DataFrame.")
+            
+        df = df.copy()
+        if self.vol_col not in df.columns:
+            df[self.vol_col] = 0.0
+            df[self.amt_vol] = 0.0
+        if self.amt_vol not in df.columns and self.vol_col in df.columns:
+            df[self.amt_vol] = df[self.vol_col] * df[self.price_cols].mean(axis=1)
+
+        x_time_df = calc_time_stamps(x_ts)
+
+        x = df[self.price_cols + [self.vol_col, self.amt_vol]].values.astype(np.float32)
+        x_stamp = x_time_df.values.astype(np.float32)
+
+        x_mean, x_std = np.mean(x, axis=0), np.std(x, axis=0)
+        
+        tiny_std_mask = x_std < 1.0
+        x_std[tiny_std_mask] = 1.0
+        x_mean[tiny_std_mask] = 0.0
+
+        x = (x - x_mean) / (x_std + 1e-5)
+        x = np.clip(x, -self.clip, self.clip)
+
+        x_tensor = torch.from_numpy(x).unsqueeze(0).to(self.device).float()
+        x_stamp_tensor = torch.from_numpy(x_stamp).unsqueeze(0).to(self.device).float()
+
+        self.model = self.model.float() # Force entire base model to FP32
+        with torch.no_grad():
+            s1_token, s2_token = self.tokenizer.encode(x_tensor, half=True)
+            s1_token, s2_token = s1_token.to(torch.long), s2_token.to(torch.long)
+            logits, value = self.model.forward_rl(s1_token, s2_token, stamp=x_stamp_tensor)
+            
+            # Get the predicted action for the final timestep
+            action_logits = logits[0, -1, :] # Shape: [3]
+            state_value = value[0, -1].item() if value.dim() > 1 else value.item()
+                
+            # Deterministic greedy action for live
+            action = torch.argmax(action_logits).item()
+            
+        return action, state_value
 
 
     def predict_batch(self, df_list, x_timestamp_list, y_timestamp_list, pred_len, T=1.0, top_k=0, top_p=0.9, sample_count=1, verbose=True):
