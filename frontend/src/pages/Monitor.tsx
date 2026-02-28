@@ -238,7 +238,7 @@ export default function Monitor() {
       )}
 
       {/* KPI Metrics */}
-      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
+      <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2 lg:gap-3">
         <MetricCard
           label="当前标记价格"
           value={
@@ -292,7 +292,7 @@ export default function Monitor() {
           }
         />
         <MetricCard
-          label="宏观恐慌贪婪 (FGI)"
+          label="全球恐慌贪婪"
           value={fundamentals?.fgi?.value ?? "—"}
           delta={fundamentals?.fgi?.classification}
           positive={
@@ -300,7 +300,7 @@ export default function Monitor() {
           }
         />
         <MetricCard
-          label="实时资金费率 (Funding)"
+          label="永续资金费率"
           value={
             fundamentals?.funding_rate != null
               ? `${(fundamentals.funding_rate * 100).toFixed(4)}%`
@@ -308,7 +308,7 @@ export default function Monitor() {
           }
           delta={
             fundamentals?.funding_rate != null
-              ? (fundamentals.funding_rate > 0 ? "多头付空头" : fundamentals.funding_rate < 0 ? "空头付多头" : "基准费率")
+              ? (fundamentals.funding_rate > 0 ? "多付空" : fundamentals.funding_rate < 0 ? "空付多" : "基准")
               : undefined
           }
           positive={
@@ -316,61 +316,15 @@ export default function Monitor() {
           }
         />
         <MetricCard
-          label="RL 胜率预期 (Value)"
+          label="RL 风控期望"
           value={
             rlAlignment != null
-              ? (rlAlignment.action === 0 ? "做空 SHORT" : rlAlignment.action === 1 ? "观望 HOLD" : "做多 LONG")
+              ? (rlAlignment.action === 0 ? "做空 (S)" : rlAlignment.action === 1 ? "观望 (H)" : "做多 (L)")
               : "未对齐"
           }
-          delta={rlAlignment != null ? `Adv: ${rlAlignment.value.toFixed(4)}` : undefined}
+          delta={rlAlignment != null ? `V: ${rlAlignment.value.toFixed(4)}` : undefined}
           positive={rlAlignment != null ? rlAlignment.value > 0 : undefined}
         />
-      </motion.div>
-
-      {/* Main Chart Area */}
-      <motion.div variants={itemVariants} className="glass-panel rounded-2xl p-4 md:p-6 overflow-hidden border-t border-l border-white/5">
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex flex-col gap-1">
-            <h3 className="text-lg font-bold text-white tracking-wide">时空结构演化图谱</h3>
-            {ohlcvLoading && <span className="text-sm text-neon-cyan animate-pulse">实时同步中...</span>}
-          </div>
-
-          {/* Signal Confidence floating indicator */}
-          <div className="flex flex-col items-end gap-1.5 min-w-[140px]">
-            <span className="text-xs text-slate-400 font-medium tracking-widest uppercase">模型置信度</span>
-            {signal ? (
-              <div className="flex items-center gap-3 w-full justify-end">
-                <div className="w-24 bg-slate-800 rounded-full h-1.5 overflow-hidden flex-shrink-0">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: `${signal.confidence * 100}%` }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className="bg-gradient-to-r from-neon-purple to-neon-cyan h-1.5 rounded-full"
-                  />
-                </div>
-                <span className="text-sm font-bold text-neon-cyantabular-nums">
-                  {(signal.confidence * 100).toFixed(1)}%
-                </span>
-              </div>
-            ) : (
-              <span className="text-sm font-bold text-slate-600">—</span>
-            )}
-          </div>
-        </div>
-        <div className="w-full relative h-[500px] -mx-4 md:mx-0">
-          {!ohlcvLoading && (
-            <div className="absolute inset-0">
-              <KlineChart
-                data={ohlcv}
-                predSeries={predSeries}
-                symbol={symbol}
-                timeframe={timeframe}
-              />
-            </div>
-          )}
-
-
-        </div>
       </motion.div>
 
       {/* Multi-Timeframe Signals */}
@@ -431,6 +385,52 @@ export default function Monitor() {
         </div>
 
 
+      </motion.div>
+
+      {/* Main Chart Area */}
+      <motion.div variants={itemVariants} className="glass-panel rounded-2xl p-4 md:p-6 overflow-hidden border-t border-l border-white/5">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex flex-col gap-1">
+            <h3 className="text-lg font-bold text-white tracking-wide">时空结构演化图谱</h3>
+            {ohlcvLoading && <span className="text-sm text-neon-cyan animate-pulse">实时同步中...</span>}
+          </div>
+
+          {/* Signal Confidence floating indicator */}
+          <div className="flex flex-col items-end gap-1.5 min-w-[140px]">
+            <span className="text-xs text-slate-400 font-medium tracking-widest uppercase">模型置信度</span>
+            {signal ? (
+              <div className="flex items-center gap-3 w-full justify-end">
+                <div className="w-24 bg-slate-800 rounded-full h-1.5 overflow-hidden flex-shrink-0">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${signal.confidence * 100}%` }}
+                    transition={{ duration: 1, ease: "easeOut" }}
+                    className="bg-gradient-to-r from-neon-purple to-neon-cyan h-1.5 rounded-full"
+                  />
+                </div>
+                <span className="text-sm font-bold text-neon-cyantabular-nums">
+                  {(signal.confidence * 100).toFixed(1)}%
+                </span>
+              </div>
+            ) : (
+              <span className="text-sm font-bold text-slate-600">—</span>
+            )}
+          </div>
+        </div>
+        <div className="w-full relative h-[500px] -mx-4 md:mx-0">
+          {!ohlcvLoading && (
+            <div className="absolute inset-0">
+              <KlineChart
+                data={ohlcv}
+                predSeries={predSeries}
+                symbol={symbol}
+                timeframe={timeframe}
+              />
+            </div>
+          )}
+
+
+        </div>
       </motion.div>
 
       {/* Recent Trades Table */}

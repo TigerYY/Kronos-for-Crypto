@@ -78,8 +78,8 @@ def train_ppo():
     clip_epsilon = 0.2
     c_value = 0.5
     c_entropy = 0.01
-    num_episodes = 50
-    steps_per_episode = 512
+    num_episodes = 500       # SCALED UP from 50
+    steps_per_episode = 2048 # SCALED UP from 512 (Extended trajectory simulation)
     ppo_epochs = 4
     mini_batch_size = 64
     max_context = 400
