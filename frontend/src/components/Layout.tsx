@@ -156,8 +156,27 @@ export default function Layout() {
               </div>
             </div>
 
-            {/* Right side spacer for future top-right global actions */}
-            <div id="header-actions" className="flex items-center gap-3"></div>
+            {/* Right side spacer / Project Name */}
+            <div id="header-actions" className="flex items-center gap-3">
+              <AnimatePresence>
+                {!isSidebarOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, x: 20, width: 0 }}
+                    animate={{ opacity: 1, x: 0, width: "auto" }}
+                    exit={{ opacity: 0, x: 20, width: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="flex flex-col text-right overflow-hidden whitespace-nowrap ml-4"
+                  >
+                    <h2 className="text-xl font-bold bg-gradient-to-r from-neon-cyan to-neon-purple bg-clip-text text-transparent">
+                      Kronos Trading
+                    </h2>
+                    <p className="text-[10px] text-slate-400 uppercase tracking-wider font-semibold">
+                      模型驱动 · 实时预测
+                    </p>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
 
           {/* Outlet Container */}
