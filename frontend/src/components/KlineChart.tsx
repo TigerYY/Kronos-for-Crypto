@@ -1,5 +1,6 @@
-import { useMemo } from "react";
-import Plot from "react-plotly.js";
+import { useEffect, useRef } from "react";
+import { createChart, ColorType, CrosshairMode, CandlestickSeries, LineSeries } from "lightweight-charts";
+import type { Time } from "lightweight-charts";
 import type { OhlcvBar } from "../api/client";
 
 type KlineChartProps = {
@@ -10,126 +11,141 @@ type KlineChartProps = {
   minimal?: boolean;
 };
 
-// 将时间字符串转为毫秒时间戳，与 K 线 x 轴一致
-function parseToMs(ts: string): number {
-  const d = new Date(ts.replace(" ", "T"));
-  return isNaN(d.getTime()) ? 0 : d.getTime();
+// Utilities for time manipulation (UTC)
+function parseToUnix(ts: string): Time {
+  // Ensure the timestamp string is treated as UTC
+  const d = new Date(ts.replace(" ", "T") + "Z");
+  return (isNaN(d.getTime()) ? 0 : Math.floor(d.getTime() / 1000)) as Time;
 }
 
-// 按周期计算下一根 K 线的时间戳（毫秒）
-function addIntervalMs(ms: number, timeframe: string): number {
-  const d = new Date(ms);
+function addIntervalSeconds(unixTime: number, timeframe: string): number {
   const map: Record<string, number> = {
-    "5m": 5 * 60 * 1000,
-    "15m": 15 * 60 * 1000,
-    "1h": 60 * 60 * 1000,
-    "4h": 4 * 60 * 60 * 1000,
-    "1d": 24 * 60 * 60 * 1000,
+    "5m": 5 * 60,
+    "15m": 15 * 60,
+    "1h": 60 * 60,
+    "4h": 4 * 60 * 60,
+    "1d": 24 * 60 * 60,
   };
-  const step = map[timeframe] ?? 60 * 60 * 1000;
-  return d.getTime() + step;
+  const step = map[timeframe] ?? 3600;
+  return unixTime + step;
 }
 
 export default function KlineChart({ data, predSeries, symbol, timeframe, minimal = false }: KlineChartProps) {
-  const { xMs, open, high, low, close } = useMemo(() => {
-    if (!data?.length)
-      return { xMs: [] as number[], open: [], high: [], low: [], close: [] };
-    const xMs = data.map((b) => parseToMs(b.timestamps));
-    return {
-      xMs,
-      open: data.map((b) => b.open),
-      high: data.map((b) => b.high),
-      low: data.map((b) => b.low),
-      close: data.map((b) => b.close),
-    };
-  }, [data]);
+  const chartContainerRef = useRef<HTMLDivElement>(null);
 
-  const predCandleTrace = useMemo(() => {
-    if (!predSeries?.length || !data?.length) return null;
-    const lastTsStr = data[data.length - 1].timestamps;
-    const lastClose = close.length ? close[close.length - 1] : 0;
+  useEffect(() => {
+    if (!chartContainerRef.current) return;
 
-    // 使用与 K 线一致的 x 轴：统一为时间戳（毫秒）
-    let lastMs = parseToMs(lastTsStr);
-    const predXMs: number[] = [];
+    // 1. Initialize TradingView Chart
+    const chart = createChart(chartContainerRef.current, {
+      layout: {
+        background: { type: ColorType.Solid, color: minimal ? "transparent" : "#0d1117" },
+        textColor: "#94a3b8",
+      },
+      grid: {
+        vertLines: { color: minimal ? "transparent" : "#1e2a3a" },
+        horzLines: { color: minimal ? "transparent" : "#1e2a3a" },
+      },
+      crosshair: {
+        mode: minimal ? CrosshairMode.Hidden : CrosshairMode.Normal,
+      },
+      rightPriceScale: {
+        borderColor: "#1e2a3a",
+        visible: !minimal,
+      },
+      timeScale: {
+        borderColor: "#1e2a3a",
+        timeVisible: true,
+        secondsVisible: false,
+        visible: !minimal,
+      },
+      handleScroll: !minimal,
+      handleScale: !minimal,
+    });
 
-    const pOpen: number[] = [];
-    const pHigh: number[] = [];
-    const pLow: number[] = [];
-    const pClose: number[] = [];
+    // 2. Add Main Candlestick Series
+    const candleSeries = chart.addSeries(CandlestickSeries, {
+      upColor: "#10b981",    // emerald-500
+      downColor: "#f43f5e",  // rose-500
+      borderVisible: false,
+      wickUpColor: "#10b981",
+      wickDownColor: "#f43f5e",
+    });
 
-    let prevClose = lastClose;
-
-    // 针对每个预测点位，构造一个前日收盘 -> 今日收盘 的无影线实体 K 线 (Marubozu)
-    for (let i = 0; i < predSeries.length; i++) {
-      lastMs = addIntervalMs(lastMs, timeframe);
-      predXMs.push(lastMs);
-
-      const currPred = predSeries[i];
-      pOpen.push(prevClose);
-      pClose.push(currPred);
-      pHigh.push(Math.max(prevClose, currPred));
-      pLow.push(Math.min(prevClose, currPred));
-
-      prevClose = currPred;
+    // Parse main K-line data
+    if (data && data.length > 0) {
+      const tvData = data.map((b) => ({
+        time: parseToUnix(b.timestamps),
+        open: b.open,
+        high: b.high,
+        low: b.low,
+        close: b.close,
+      }));
+      // lightweight-charts requires data to be strictly sorted by time ascending
+      tvData.sort((a, b) => (a.time as number) - (b.time as number));
+      candleSeries.setData(tvData);
     }
 
-    return {
-      x: predXMs,
-      open: pOpen,
-      high: pHigh,
-      low: pLow,
-      close: pClose,
-      type: "candlestick",
-      name: "AI 预测推演",
-      // 使用带透明度的特殊颜色，区分出“预测虚线感”
-      increasing: { line: { color: "rgba(52, 211, 153, 0.5)", width: 2 }, fillcolor: "rgba(52, 211, 153, 0.3)" },
-      decreasing: { line: { color: "rgba(251, 113, 133, 0.5)", width: 2 }, fillcolor: "rgba(251, 113, 133, 0.3)" },
-    };
-  }, [predSeries, data, close, timeframe]);
+    // 3. Add AI Prediction Projection Overlay (Line)
+    if (!minimal && predSeries && predSeries.length > 0 && data && data.length > 0) {
+      const predLineSeries = chart.addSeries(LineSeries, {
+        color: "#00f0ff", // neon-cyan
+        lineWidth: 2,
+        lineStyle: 1, // Dashed
+        crosshairMarkerVisible: true,
+        lastPriceAnimation: 1,
+      });
 
-  const traces: object[] = [
-    {
-      x: xMs,
-      open,
-      high,
-      low,
-      close,
-      type: "candlestick",
-      name: "OHLC",
-      increasing: { line: { color: "#00ff88" } },
-      decreasing: { line: { color: "#ff4757" } },
-    },
-  ];
-  if (predCandleTrace) traces.push(predCandleTrace);
+      const lastCandle = data[data.length - 1];
+      const lastUnix = parseToUnix(lastCandle.timestamps) as number;
+      const lastClose = lastCandle.close;
+
+      const predTvData: { time: Time; value: number }[] = [];
+
+      // Start the prediction line from the most recent close
+      predTvData.push({ time: lastUnix as Time, value: lastClose });
+
+      let currentUnix = lastUnix;
+      predSeries.forEach((predValue) => {
+        currentUnix = addIntervalSeconds(currentUnix, timeframe);
+        predTvData.push({ time: currentUnix as Time, value: predValue });
+      });
+
+      predLineSeries.setData(predTvData);
+    }
+
+    // Fit content
+    chart.timeScale().fitContent();
+
+    // Responsive Canvas
+    const resizeObserver = new ResizeObserver((entries) => {
+      if (entries.length === 0 || entries[0].target !== chartContainerRef.current) return;
+      const newRect = entries[0].contentRect;
+      chart.applyOptions({ width: newRect.width, height: newRect.height });
+    });
+    resizeObserver.observe(chartContainerRef.current);
+
+    // Cleanup
+    return () => {
+      resizeObserver.disconnect();
+      chart.remove();
+    };
+  }, [data, predSeries, minimal, timeframe]);
 
   return (
-    <Plot
-      data={traces}
-      layout={{
-        template: "plotly_dark",
-        paper_bgcolor: minimal ? "rgba(0,0,0,0)" : "#0d1117",
-        plot_bgcolor: minimal ? "rgba(0,0,0,0)" : "#0d1117",
-        height: minimal ? undefined : 500,
-        title: minimal ? undefined : `${symbol} · ${timeframe}`,
-        dragmode: minimal ? false : "zoom",
-        xaxis: {
-          type: "date",
-          rangeslider: { visible: false },
-          gridcolor: "#1e2a3a",
-          visible: !minimal,
-          fixedrange: minimal,
-        },
-        yaxis: {
-          gridcolor: "#1e2a3a",
-          visible: !minimal,
-          fixedrange: minimal,
-        },
-        margin: minimal ? { t: 5, b: 5, l: 5, r: 5 } : { t: 40, b: 40, l: 60, r: 40 },
-        showlegend: false,
-      }}
-      config={minimal ? { displayModeBar: false, responsive: true, staticPlot: true } : { responsive: true }}
-      style={minimal ? { width: "100%", height: "100%" } : { width: "100%" }}
-    />
+    <div className="absolute inset-0 z-0">
+      <div
+        ref={chartContainerRef}
+        className="w-full h-full relative z-10"
+        style={{ userSelect: "none", WebkitUserSelect: "none" }}
+      />
+      {!minimal && (
+        <div className="absolute inset-0 pointer-events-none flex items-center justify-center z-20">
+          <div className="text-[6rem] font-black text-white/5 uppercase tracking-widest text-center leading-none">
+            {symbol}<br />{timeframe}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }
