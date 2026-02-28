@@ -10,10 +10,15 @@ import time
 from typing import List, Dict
 from datetime import datetime, timezone
 
-# 推荐的知名高频 Crypto 新闻 RSS 源
+# 推荐的知名高频 Crypto 新闻与全球宏观 RSS 源
 CRYPTO_RSS_FEEDS = [
+    # 纯 Crypto 垂直
     "https://cointelegraph.com/rss",
     "https://www.coindesk.com/arc/outboundfeeds/rss/",
+    "https://cryptoslate.com/feed/",
+    # 全球宏观经济 (可叠加雅虎财经等)
+    "https://finance.yahoo.com/news/rssindex",
+    "https://search.cnbc.com/rs/search/combinedcms/view.xml?profile=120000000&id=10000664" # CNBC Finance
 ]
 
 class NewsScanner:

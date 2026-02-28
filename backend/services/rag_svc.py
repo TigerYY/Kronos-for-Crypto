@@ -31,9 +31,9 @@ class RAGAnalyzer:
         if not news_items:
             return {"sentiment": "NEUTRAL", "override_signal": "NONE", "reason": "No recent news."}
             
-        # 将最新的 10 条新闻拼接成紧凑的上下文
+        # 将最新的 25 条新闻拼接成紧凑的上下文
         context = ""
-        for idx, item in enumerate(news_items[:10]):
+        for idx, item in enumerate(news_items[:25]):
             context += f"{(idx+1)}. [Source: {item.get('source', '')}] {item.get('title', '')} - {item.get('summary', '')}\n"
 
         system_prompt = """You are a strictly logical hedge fund risk-management AI.
@@ -52,10 +52,10 @@ You MUST reply IN JSON FORMAT exactly matching this structure, and NOTHING ELSE:
 RULES:
 - Respond ONLY with JSON. No markdown backticks, no extra text.
 - Be extremely conservative on overrides. 99% of news is NEUTRAL/MIXED with NONE. 
-- EXTREME_BEARISH is ONLY for market crashes, bans, hacks, war breaks out. override_signal -> SELL.
+- EXTREME_BEARISH is ONLY for market crashes, bans, hacks, war outbreaks. override_signal -> SELL.
 - EXTREME_BULLISH is ONLY for massive ETF approvals, sovereign adoption. override_signal -> BUY.
 - For mixed, uncertain, or normal news, choose NEUTRAL or MIXED and NONE.
-- `events` should be a concise list of major themes found in the context, translate them to Chinese. If no news, return an empty list.
+- `events` MUST be a list of EXACTLY 10 to 12 concise Chinese summaries representing the most important macro/crypto themes found in the context. We need 12 items for a UI ticker tape.
 """
         
         user_prompt = f"Analyze the following immediate news breaking in the last 4 hours and evaluate the macro necessity for a system override:\n\n{context}"
