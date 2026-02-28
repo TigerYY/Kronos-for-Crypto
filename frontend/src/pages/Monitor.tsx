@@ -224,21 +224,43 @@ export default function Monitor() {
             scale: isRagAlert ? { repeat: Infinity, duration: 2 } : { duration: 0.5 },
             boxShadow: isRagAlert ? { repeat: Infinity, duration: 2 } : { duration: 0.5 }
           }}
-          className={`p-4 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-colors duration-500 ${isRagAlert ? 'bg-rose-950/40 border-rose-500/50 shadow-[0_0_15px_rgba(225,29,72,0.3)]' : 'bg-slate-900/40 border-slate-700/50'}`}
+          className={`p-3 lg:p-4 rounded-xl border flex items-center justify-between gap-4 lg:gap-6 transition-colors duration-500 overflow-hidden ${isRagAlert ? 'bg-rose-950/40 border-rose-500/50 shadow-[0_0_15px_rgba(225,29,72,0.3)]' : 'bg-slate-900/40 border-slate-700/50'}`}
         >
-          <div className="flex items-center gap-3">
-            <div className={`w-3 h-3 rounded-full ${isRagAlert ? 'bg-rose-500 animate-pulse' : 'bg-emerald-500'}`} />
-            <div>
-              <h3 className={`text-sm tracking-widest uppercase font-bold ${isRagAlert ? 'text-rose-400' : 'text-slate-400'}`}>
-                {isRagAlert ? "MACRO RAG INTERVENTION ACTIVE" : "Macro RAG Radar: Neural System Safe"}
-              </h3>
-              {isRagAlert && (
-                <p className="text-white mt-1 text-sm">{rag.reason || "Extreme macro volatility detected."}</p>
-              )}
-            </div>
+          {/* Const Left Area */}
+          <div className="flex items-center gap-2.5 whitespace-nowrap flex-shrink-0">
+            <div className={`w-2.5 h-2.5 rounded-full ${rag.sentiment === 'EXTREME_BEARISH' || rag.sentiment === 'NEGATIVE' ? 'bg-rose-500 shadow-[0_0_8px_rgba(225,29,72,0.8)]' : rag.sentiment === 'EXTREME_BULLISH' || rag.sentiment === 'POSITIVE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]'} animate-pulse`} />
+            <h3 className={`text-xs md:text-sm tracking-widest font-bold ${isRagAlert ? 'text-rose-400' : 'text-slate-400'}`}>
+              {isRagAlert ? "MACRO OVERRIDE" : "宏观雷达"}
+            </h3>
           </div>
+
+          {/* Scrolling Marquee Area */}
+          {rag.events && rag.events.length > 0 ? (
+            <div className="flex-1 overflow-hidden relative flex items-center h-6 [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)] hidden md:flex">
+              <motion.div
+                animate={{ x: ["0%", "-50%"] }}
+                transition={{ repeat: Infinity, ease: "linear", duration: Math.max(20, rag.events.length * 5) }}
+                className="flex gap-10 whitespace-nowrap w-max px-4 hover:[animation-play-state:paused]"
+              >
+                {[...rag.events, ...rag.events, ...rag.events, ...rag.events].map((evt: any, i: number) => (
+                  <span key={i} className={`text-sm font-semibold tracking-wide ${evt.sentiment === 'EXTREME_BULLISH' || evt.sentiment === 'POSITIVE' ? 'text-emerald-400' :
+                    evt.sentiment === 'EXTREME_BEARISH' || evt.sentiment === 'NEGATIVE' ? 'text-rose-400' :
+                      'text-yellow-400/90'
+                    }`}>
+                    {evt.text}
+                  </span>
+                ))}
+              </motion.div>
+            </div>
+          ) : (
+            <div className="flex-1 text-slate-500 text-xs md:text-sm italic whitespace-nowrap overflow-hidden text-ellipsis hidden md:block">
+              {isRagAlert ? rag.reason : "正在嗅探全球宏观因子网络..."}
+            </div>
+          )}
+
+          {/* Override Action Badge */}
           {isRagAlert && (
-            <div className="px-4 py-1.5 rounded bg-rose-500/20 text-rose-400 font-bold tracking-widest text-sm border border-rose-500/30">
+            <div className="px-3 py-1 rounded bg-rose-500/20 text-rose-400 font-bold tracking-widest text-xs md:text-sm border border-rose-500/30 flex-shrink-0">
               OVERRIDE: {rag.override_signal}
             </div>
           )}

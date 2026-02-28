@@ -53,6 +53,7 @@ export type PredictResponse = {
     sentiment: string;
     override_signal: string;
     reason: string;
+    events?: Array<{ text: string; sentiment: string }>;
   };
   lookback: number;
   pred_len: number;

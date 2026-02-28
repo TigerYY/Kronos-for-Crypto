@@ -37,21 +37,25 @@ class RAGAnalyzer:
             context += f"{(idx+1)}. [Source: {item.get('source', '')}] {item.get('title', '')} - {item.get('summary', '')}\n"
 
         system_prompt = """You are a strictly logical hedge fund risk-management AI.
-Your ONLY job is to detect Black Swan macro/crypto events that justify overriding an active technical trading system.
+Your ONLY job is to detect Black Swan macro/crypto events that justify overriding an active technical trading system, AND summarize the headlines into short, punchy 3-8 word phrases in CHINESE (e.g., "美联储加息", "币安被黑", "中东局部冲突", "ETF获批").
 
 You MUST reply IN JSON FORMAT exactly matching this structure, and NOTHING ELSE:
 {
-  "sentiment": "EXTREME_BEARISH" | "EXTREME_BULLISH" | "NEUTRAL", 
+  "sentiment": "EXTREME_BEARISH" | "EXTREME_BULLISH" | "NEUTRAL" | "MIXED", 
   "override_signal": "SELL" | "BUY" | "NONE",
-  "reason": "Brief english reason if not neutral, else Empty"
+  "reason": "Brief english reason if not neutral, else Empty",
+  "events": [
+    {"text": "Short Chinese summary of event", "sentiment": "POSITIVE" | "NEGATIVE" | "NEUTRAL"}
+  ]
 }
 
 RULES:
 - Respond ONLY with JSON. No markdown backticks, no extra text.
-- Be extremely conservative. 99% of news is NEUTRAL. 
+- Be extremely conservative on overrides. 99% of news is NEUTRAL/MIXED with NONE. 
 - EXTREME_BEARISH is ONLY for market crashes, bans, hacks, war breaks out. override_signal -> SELL.
 - EXTREME_BULLISH is ONLY for massive ETF approvals, sovereign adoption. override_signal -> BUY.
-- For mixed, uncertain, or normal news, choose NEUTRAL and NONE.
+- For mixed, uncertain, or normal news, choose NEUTRAL or MIXED and NONE.
+- `events` should be a concise list of major themes found in the context, translate them to Chinese. If no news, return an empty list.
 """
         
         user_prompt = f"Analyze the following immediate news breaking in the last 4 hours and evaluate the macro necessity for a system override:\n\n{context}"
@@ -65,7 +69,7 @@ RULES:
                     {"role": "user", "content": user_prompt}
                 ],
                 temperature=0.0, # We want deterministic logic
-                max_tokens=200
+                max_tokens=400
             )
             
             # 兼容不同模型的输出习惯，清理可能附带的 ```json 标签
@@ -81,7 +85,8 @@ RULES:
             return {
                 "sentiment": result.get("sentiment", "NEUTRAL"),
                 "override_signal": result.get("override_signal", "NONE"),
-                "reason": result.get("reason", "")
+                "reason": result.get("reason", ""),
+                "events": result.get("events", [])
             }
             
         except Exception as e:
@@ -89,6 +94,11 @@ RULES:
             return {"sentiment": "NEUTRAL", "override_signal": "NONE", "reason": f"LLM Error: {str(e)}"}
 
 if __name__ == "__main__":
+    import sys
+    ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    if ROOT not in sys.path:
+        sys.path.insert(0, ROOT)
+    
     from trading.news_scanner import NewsScanner
     import pprint
     
