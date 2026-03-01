@@ -115,11 +115,14 @@ export default function KlineChart({ data, predSeries, symbol, timeframe, minima
       const lastCandle = data[data.length - 1];
       const lastUnix = parseToUnix(lastCandle.timestamps) as number;
 
-      // 整体趋势决定预测区间的统一颜色，避免单根 bar 色系杂乱
+      // 整体趋势决定 T5-T8 远期统一颜色
       const finalBar = predSeries[predSeries.length - 1];
       const isUpward = finalBar.close >= lastCandle.close;
-      const NEAR_COLOR = isUpward ? "#00f0ff" : "#f97316";                   // 近期实色
-      const FAR_COLOR = isUpward ? "rgba(0, 240, 255, 0.30)" : "rgba(249, 115, 22, 0.30)";  // 远期淡色
+      const FAR_COLOR = isUpward ? "rgba(0, 240, 255, 0.30)" : "rgba(249, 115, 22, 0.30)";
+
+      // T1-T4 近期: 阳线=霓虹青色, 阴线=橙红色（体现精细阴阳格局）
+      const NEAR_UP = "#00f0ff";  // 霓虹青（看涨 bar）
+      const NEAR_DOWN = "#f97316";  // 橙红（看跌 bar）
 
       const nearBars = predSeries.slice(0, 4);  // T1-T4: 高置信度
       const farBars = predSeries.slice(4, 8);  // T5-T8: 中置信度
@@ -133,15 +136,14 @@ export default function KlineChart({ data, predSeries, symbol, timeframe, minima
         });
       };
 
-      // upColor 和 downColor 设为相同值，让每根 bar 无论自身涨跌都统一使用趋势色
-      const addPredSeries = (bars: typeof predSeries, startUnix: number, color: string) => {
+      const addPredSeries = (bars: typeof predSeries, startUnix: number, upColor: string, downColor: string) => {
         const series = chart.addSeries(CandlestickSeries, {
-          upColor: color,
-          downColor: color,
-          borderUpColor: color,
-          borderDownColor: color,
-          wickUpColor: color,
-          wickDownColor: color,
+          upColor,
+          downColor,
+          borderUpColor: upColor,
+          borderDownColor: downColor,
+          wickUpColor: upColor,
+          wickDownColor: downColor,
           borderVisible: true,
         });
         const barData = buildBarData(bars, startUnix);
@@ -149,11 +151,11 @@ export default function KlineChart({ data, predSeries, symbol, timeframe, minima
         return barData;
       };
 
-      // 渲染近期预测（T1-T4）
-      const nearData = addPredSeries(nearBars, lastUnix, NEAR_COLOR);
-      // 渲染远期预测（T5-T8），起点从最后一根近期 bar 的时间戳开始
+      // 近期（T1-T4）: 阴阳线配色，展示精细细节
+      const nearData = addPredSeries(nearBars, lastUnix, NEAR_UP, NEAR_DOWN);
+      // 远期（T5-T8）: 统一趋势淡色，只传大方向
       const nearEndUnix = nearData.length > 0 ? (nearData[nearData.length - 1].time as number) : lastUnix;
-      addPredSeries(farBars, nearEndUnix, FAR_COLOR);
+      addPredSeries(farBars, nearEndUnix, FAR_COLOR, FAR_COLOR);
     }
 
     // Fit content

@@ -51,11 +51,13 @@ export default function MiniKlineChart({ data, predSeries, symbol, timeframe }: 
         const lastTsStr = data[data.length - 1].timestamps;
         const lastClose = data[data.length - 1].close;
 
-        // 整体趋势决定统一颜色，让预测区域色系纯净
+        // T5-T8 远期: 统一淡色（只传大方向）
         const finalBar = predSeries[predSeries.length - 1];
         const isUpward = finalBar.close >= lastClose;
-        const NEAR_COLOR = isUpward ? "#00f0ff" : "#f97316";
         const FAR_COLOR = isUpward ? "rgba(0,240,255,0.30)" : "rgba(249,115,22,0.30)";
+        // T1-T4 近期: 阳线=霓虹青，阴线=橙红
+        const NEAR_UP = "#00f0ff";
+        const NEAR_DOWN = "#f97316";
 
         let lastMs = parseToMs(lastTsStr);
 
@@ -80,18 +82,18 @@ export default function MiniKlineChart({ data, predSeries, symbol, timeframe }: 
         const nearGroup = buildGroup(predSeries.slice(0, 4));
         const farGroup = buildGroup(predSeries.slice(4, 8));
 
-        // increasing 和 decreasing 都设为同一颜色，不按单根涨跌着色
-        const makeTrace = (group: ReturnType<typeof buildGroup>, color: string, suffix: string) => ({
+        // T1-T4: 阴阳配色体现精细细节; T5-T8: 统一淡色传大方向
+        const makeTrace = (group: ReturnType<typeof buildGroup>, upColor: string, downColor: string, suffix: string) => ({
             ...group,
             type: "candlestick",
             name: `AI预测_${suffix}`,
-            increasing: { line: { color, width: 1 }, fillcolor: color },
-            decreasing: { line: { color, width: 1 }, fillcolor: color },
+            increasing: { line: { color: upColor, width: 1 }, fillcolor: upColor },
+            decreasing: { line: { color: downColor, width: 1 }, fillcolor: downColor },
         });
 
         return [
-            makeTrace(nearGroup, NEAR_COLOR, "near"),
-            makeTrace(farGroup, FAR_COLOR, "far"),
+            makeTrace(nearGroup, NEAR_UP, NEAR_DOWN, "near"),
+            makeTrace(farGroup, FAR_COLOR, FAR_COLOR, "far"),
         ];
     }, [predSeries, data, timeframe]);
 
