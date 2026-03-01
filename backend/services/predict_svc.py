@@ -14,8 +14,10 @@ from crypto_simulator import CryptoSimulator, LOOKBACK, PRED_LEN
 from backend.services.rag_svc import RAGAnalyzer
 from trading.news_scanner import NewsScanner
 import time
+import threading
 
 _rag_cache = {"timestamp": 0, "decision": None}
+_rag_lock = threading.Lock()  # 防止并发刷新多次触发 Ollama 冷启动
 _simulator: CryptoSimulator | None = None
 DEFAULT_TIMEFRAMES = ["5m", "15m", "1h", "4h", "1d"]
 
@@ -125,7 +127,14 @@ def get_rag_analysis() -> dict:
     global _rag_cache
     now = time.time()
     # RAG 缓存 10 分钟（Ollama keep_alive=15min，确保每次刷新时模型已热载）
-    if _rag_cache["decision"] is None or (now - _rag_cache["timestamp"] > 600):
+    if _rag_cache["decision"] is not None and (now - _rag_cache["timestamp"] <= 600):
+        return _rag_cache["decision"]  # 直接返回缓存，不需加锁
+
+    # 加锁后再次检查（防止多个并发请求同时触发所 Ollama 冷启动）
+    with _rag_lock:
+        now = time.time()  # 重新获取时间，因为可能等锁期间已有其他线程刷新了缓存
+        if _rag_cache["decision"] is not None and (now - _rag_cache["timestamp"] <= 600):
+            return _rag_cache["decision"]  # 双重检查，避免重复推理
         try:
             scanner = NewsScanner()
             news = scanner.fetch_latest_news(hours_lookback=4)
