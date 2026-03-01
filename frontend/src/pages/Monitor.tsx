@@ -468,7 +468,9 @@ export default function Monitor() {
       <motion.div variants={itemVariants} className="glass-panel rounded-2xl p-4 md:p-6 overflow-hidden border-t border-l border-white/5">
         <div className="flex items-center justify-between mb-2">
           <div className="flex flex-col gap-1">
-            <h3 className="text-lg font-bold text-white tracking-wide">时空结构演化图谱</h3>
+            <h3 className="text-lg font-bold text-white tracking-wide">
+              时空结构演化图谱 <span className="text-slate-400 text-sm ml-1 font-semibold">({timeframe.toUpperCase()})</span>
+            </h3>
             {ohlcvLoading && <span className="text-sm text-neon-cyan animate-pulse">实时同步中...</span>}
           </div>
 
