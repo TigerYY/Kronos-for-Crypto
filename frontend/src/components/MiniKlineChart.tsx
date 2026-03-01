@@ -2,9 +2,11 @@ import { useMemo } from "react";
 import Plot from "react-plotly.js";
 import type { OhlcvBar } from "../api/client";
 
+type PredBar = { open: number; high: number; low: number; close: number };
+
 type MiniKlineChartProps = {
     data: OhlcvBar[];
-    predSeries?: number[];
+    predSeries?: PredBar[];
     symbol: string;
     timeframe: string;
 };
@@ -43,37 +45,52 @@ export default function MiniKlineChart({ data, predSeries, symbol, timeframe }: 
         };
     }, [data]);
 
-    const predLineTrace = useMemo(() => {
-        if (!predSeries?.length || !data?.length) return null;
+    // 将预测 bars 分为近期(T1-T4)和远期(T5-T8)两组
+    const predTraces = useMemo(() => {
+        if (!predSeries?.length || !data?.length) return [];
         const lastTsStr = data[data.length - 1].timestamps;
-        const lastClose = close.length ? close[close.length - 1] : 0;
-        const finalPred = predSeries[predSeries.length - 1];
-        const isUpward = finalPred >= lastClose;
 
-        // 使用与 K 线一致的 x 轴：统一为时间戳（毫秒）
         let lastMs = parseToMs(lastTsStr);
-        const predXMs: number[] = [lastMs]; // 起点连接最后一根K线
-        const pClose: number[] = [lastClose];
 
-        for (let i = 0; i < predSeries.length; i++) {
-            lastMs = addIntervalMs(lastMs, timeframe);
-            predXMs.push(lastMs);
-            pClose.push(predSeries[i]);
-        }
+        const buildGroup = (bars: PredBar[]) => {
+            const xMs: number[] = [];
+            const pOpen: number[] = [];
+            const pHigh: number[] = [];
+            const pLow: number[] = [];
+            const pClose: number[] = [];
 
-        return {
-            x: predXMs,
-            y: pClose,
-            type: "scatter",
-            mode: "lines",
-            name: "AI 预测",
-            line: {
-                color: isUpward ? "#00f0ff" : "#f97316", // neon-cyan (up) or orange (down)
-                width: 2,
-                dash: "dot"
-            },
+            bars.forEach((b) => {
+                lastMs = addIntervalMs(lastMs, timeframe);
+                xMs.push(lastMs);
+                pOpen.push(b.open);
+                pHigh.push(b.high);   // 已由后端收口，无上影线
+                pLow.push(b.low);    // 已由后端收口，无下影线
+                pClose.push(b.close);
+            });
+            return { x: xMs, open: pOpen, high: pHigh, low: pLow, close: pClose };
         };
-    }, [predSeries, data, close, timeframe]);
+
+        const nearGroup = buildGroup(predSeries.slice(0, 4));  // 近期: full opacity
+        const farGroup = buildGroup(predSeries.slice(4, 8));  // 远期: faded opacity
+
+        const CYAN = "#00f0ff";
+        const ORANGE = "#f97316";
+        const CYAN_FADED = "rgba(0,240,255,0.30)";
+        const ORANGE_FADED = "rgba(249,115,22,0.30)";
+
+        const makeTrace = (group: ReturnType<typeof buildGroup>, upColor: string, downColor: string, suffix: string) => ({
+            ...group,
+            type: "candlestick",
+            name: `AI预测_${suffix}`,
+            increasing: { line: { color: upColor, width: 1 }, fillcolor: upColor },
+            decreasing: { line: { color: downColor, width: 1 }, fillcolor: downColor },
+        });
+
+        return [
+            makeTrace(nearGroup, CYAN, ORANGE, "near"),
+            makeTrace(farGroup, CYAN_FADED, ORANGE_FADED, "far"),
+        ];
+    }, [predSeries, data, timeframe]);
 
     const traces: object[] = [
         {
@@ -88,7 +105,8 @@ export default function MiniKlineChart({ data, predSeries, symbol, timeframe }: 
             decreasing: { line: { color: "#ff4757" } },
         },
     ];
-    if (predLineTrace) traces.push(predLineTrace);
+    // 追加两组预测 bars
+    predTraces.forEach(t => traces.push(t));
 
     return (
         <Plot

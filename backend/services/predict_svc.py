@@ -57,7 +57,12 @@ def run_predict(
         try:
             pred_df, rl_res = sim.predict(df)
             predictions[tf] = float(pred_df["close"].iloc[-1])
-            pred_series[tf] = pred_df["close"].astype(float).tolist()
+            # 传送前8步完整OHLC数据给前端，用于渲染置信度分层的卡线实体
+            # high/low强制收口为实体边界（无影线），消除低置信度的High/Low噪音
+            bars_raw = pred_df.head(8)[["open", "close"]].copy()
+            bars_raw["high"] = bars_raw[["open", "close"]].max(axis=1)
+            bars_raw["low"]  = bars_raw[["open", "close"]].min(axis=1)
+            pred_series[tf] = bars_raw[["open", "high", "low", "close"]].to_dict(orient="records")
             if rl_res is not None and rl_data is None:
                 # Capture the RL result from the shortest timeframe available for prompt action
                 rl_data = rl_res

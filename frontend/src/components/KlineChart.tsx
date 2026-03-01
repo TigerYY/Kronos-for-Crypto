@@ -1,11 +1,11 @@
 import { useEffect, useRef } from "react";
-import { createChart, ColorType, CrosshairMode, CandlestickSeries, LineSeries, HistogramSeries } from "lightweight-charts";
+import { createChart, ColorType, CrosshairMode, CandlestickSeries, HistogramSeries } from "lightweight-charts";
 import type { Time } from "lightweight-charts";
 import type { OhlcvBar } from "../api/client";
 
 type KlineChartProps = {
   data: OhlcvBar[];
-  predSeries?: number[];
+  predSeries?: { open: number; high: number; low: number; close: number }[];
   symbol: string;
   timeframe: string;
   minimal?: boolean;
@@ -110,34 +110,48 @@ export default function KlineChart({ data, predSeries, symbol, timeframe, minima
       volumeSeries.setData(volumeData);
     }
 
-    // 3. Add AI Prediction Projection Overlay (Line)
+    // 3. Add AI Prediction Bars (T1-T4: high confidence, T5-T8: low confidence)
     if (!minimal && predSeries && predSeries.length > 0 && data && data.length > 0) {
       const lastCandle = data[data.length - 1];
       const lastUnix = parseToUnix(lastCandle.timestamps) as number;
-      const lastClose = lastCandle.close;
-      const finalPred = predSeries[predSeries.length - 1];
-      const isUpward = finalPred >= lastClose;
 
-      const predLineSeries = chart.addSeries(LineSeries, {
-        color: isUpward ? "#00f0ff" : "#f97316", // neon-cyan (up) or orange (down)
-        lineWidth: 2,
-        lineStyle: 1, // Dashed
-        crosshairMarkerVisible: true,
-        lastPriceAnimation: 1,
-      });
+      const NEAR_COLOR_UP = "#00f0ff";                   // 霓虹青色（近期看涨）
+      const NEAR_COLOR_DOWN = "#f97316";                   // 橙红色（近期看跌）
+      const FAR_COLOR_UP = "rgba(0, 240, 255, 0.30)";   // 浅青色（远期看涨）
+      const FAR_COLOR_DOWN = "rgba(249, 115, 22, 0.30)";  // 浅橙色（远期看跌）
 
-      const predTvData: { time: Time; value: number }[] = [];
+      const nearBars = predSeries.slice(0, 4);  // T1-T4: 高置信度
+      const farBars = predSeries.slice(4, 8);  // T5-T8: 中置信度
 
-      // Start the prediction line from the most recent close
-      predTvData.push({ time: lastUnix as Time, value: lastClose });
+      // 将索引区间内的 bars 映射为 lightweight-charts OHLC 点
+      const buildBarData = (bars: typeof predSeries, startUnix: number) => {
+        let unix = startUnix;
+        return bars.map((b) => {
+          unix = addIntervalSeconds(unix, timeframe);
+          return { time: unix as Time, open: b.open, high: b.high, low: b.low, close: b.close };
+        });
+      };
 
-      let currentUnix = lastUnix;
-      predSeries.forEach((predValue) => {
-        currentUnix = addIntervalSeconds(currentUnix, timeframe);
-        predTvData.push({ time: currentUnix as Time, value: predValue });
-      });
+      const addPredSeries = (bars: typeof predSeries, startUnix: number, upColor: string, downColor: string) => {
+        const series = chart.addSeries(CandlestickSeries, {
+          upColor,
+          downColor,
+          borderUpColor: upColor,
+          borderDownColor: downColor,
+          wickUpColor: upColor,
+          wickDownColor: downColor,
+          borderVisible: true,
+        });
+        const barData = buildBarData(bars, startUnix);
+        if (barData.length > 0) series.setData(barData);
+        return barData;
+      };
 
-      predLineSeries.setData(predTvData);
+      // 渲染近期预测（T1-T4）
+      const nearData = addPredSeries(nearBars, lastUnix, NEAR_COLOR_UP, NEAR_COLOR_DOWN);
+      // 渲染远期预测（T5-T8），起点从最后一根近期 bar 的时间戳开始
+      const nearEndUnix = nearData.length > 0 ? (nearData[nearData.length - 1].time as number) : lastUnix;
+      addPredSeries(farBars, nearEndUnix, FAR_COLOR_UP, FAR_COLOR_DOWN);
     }
 
     // Fit content
