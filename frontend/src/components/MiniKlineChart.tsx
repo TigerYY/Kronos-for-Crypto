@@ -43,45 +43,35 @@ export default function MiniKlineChart({ data, predSeries, symbol, timeframe }: 
         };
     }, [data]);
 
-    const predCandleTrace = useMemo(() => {
+    const predLineTrace = useMemo(() => {
         if (!predSeries?.length || !data?.length) return null;
         const lastTsStr = data[data.length - 1].timestamps;
         const lastClose = close.length ? close[close.length - 1] : 0;
+        const finalPred = predSeries[predSeries.length - 1];
+        const isUpward = finalPred >= lastClose;
 
         // 使用与 K 线一致的 x 轴：统一为时间戳（毫秒）
         let lastMs = parseToMs(lastTsStr);
-        const predXMs: number[] = [];
-
-        const pOpen: number[] = [];
-        const pHigh: number[] = [];
-        const pLow: number[] = [];
-        const pClose: number[] = [];
-
-        let prevClose = lastClose;
+        const predXMs: number[] = [lastMs]; // 起点连接最后一根K线
+        const pClose: number[] = [lastClose];
 
         for (let i = 0; i < predSeries.length; i++) {
             lastMs = addIntervalMs(lastMs, timeframe);
             predXMs.push(lastMs);
-
-            const currPred = predSeries[i];
-            pOpen.push(prevClose);
-            pClose.push(currPred);
-            pHigh.push(Math.max(prevClose, currPred));
-            pLow.push(Math.min(prevClose, currPred));
-
-            prevClose = currPred;
+            pClose.push(predSeries[i]);
         }
 
         return {
             x: predXMs,
-            open: pOpen,
-            high: pHigh,
-            low: pLow,
-            close: pClose,
-            type: "candlestick",
+            y: pClose,
+            type: "scatter",
+            mode: "lines",
             name: "AI 预测",
-            increasing: { line: { color: "rgba(52, 211, 153, 0.5)", width: 2 }, fillcolor: "rgba(52, 211, 153, 0.3)" },
-            decreasing: { line: { color: "rgba(251, 113, 133, 0.5)", width: 2 }, fillcolor: "rgba(251, 113, 133, 0.3)" },
+            line: {
+                color: isUpward ? "#00f0ff" : "#f97316", // neon-cyan (up) or orange (down)
+                width: 2,
+                dash: "dot"
+            },
         };
     }, [predSeries, data, close, timeframe]);
 
@@ -98,7 +88,7 @@ export default function MiniKlineChart({ data, predSeries, symbol, timeframe }: 
             decreasing: { line: { color: "#ff4757" } },
         },
     ];
-    if (predCandleTrace) traces.push(predCandleTrace);
+    if (predLineTrace) traces.push(predLineTrace);
 
     return (
         <Plot
