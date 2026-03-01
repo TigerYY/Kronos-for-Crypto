@@ -264,7 +264,11 @@ export default function Monitor() {
             <div className="flex-1 text-slate-500 text-xs md:text-sm italic whitespace-nowrap overflow-hidden text-ellipsis hidden md:block">
               {rag.reason && (rag.reason.includes("Error") || rag.reason.includes("Offline")) ? (
                 <span className="text-yellow-500/80">⚠️ {rag.reason.includes("503") ? "本地大模型加载拥堵 (GPU资源占用中)，等待重试..." : rag.reason}</span>
+              ) : rag.sentiment ? (
+                // API 已响应，但当前无重大事件
+                <span className="text-slate-500/70">🌐 {rag.reason === "No recent news." ? "当前无重大宏观事件，市场情绪平稳" : rag.reason || "当前无重大宏观事件"}</span>
               ) : (
+                // 首次启动，尚未收到任何响应
                 "全球嗅探中..."
               )}
             </div>

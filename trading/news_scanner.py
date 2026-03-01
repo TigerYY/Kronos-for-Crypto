@@ -7,6 +7,7 @@ Macro RAG - News Scanner Service (Phase 3)
 
 import feedparser
 import time
+import calendar
 from typing import List, Dict
 from datetime import datetime, timezone
 
@@ -36,19 +37,21 @@ class NewsScanner:
         
         for feed_url in self.feeds:
             try:
-                # print(f"[NewsScanner] Fetching from {feed_url}...")
                 parsed_feed = feedparser.parse(feed_url)
                 
                 for entry in parsed_feed.entries:
-                    # 解析发布时间 (兼容多种格式)
+                    # feedparser 的 published_parsed 是 UTC struct_time
+                    # 必须用 calendar.timegm() 而不是 time.mktime()，
+                    # 因为 mktime 会将其当作本地时间处理，导致时区偏差
                     published_ts = None
                     if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                        published_ts = time.mktime(entry.published_parsed)
+                        published_ts = calendar.timegm(entry.published_parsed)  # UTC-safe
+                    elif hasattr(entry, 'updated_parsed') and entry.updated_parsed:
+                        published_ts = calendar.timegm(entry.updated_parsed)    # fallback to updated
                     
                     if published_ts and published_ts >= cutoff_time:
                         title = entry.get('title', '')
                         summary = entry.get('summary', '')
-                        # 去除一些冗长的 HTML 标签或无意义的图注
                         summary = self._clean_html(summary)
                         
                         recent_news.append({
@@ -62,6 +65,12 @@ class NewsScanner:
                 
         # 按时间倒序排序 (最新的在前)
         recent_news.sort(key=lambda x: x['published_ts'], reverse=True)
+        
+        # 如果 4h 内没有新闻，自动放宽到 12h 再试一次（避免因偶发无新闻导致空屏）
+        if not recent_news and hours_lookback <= 4:
+            print("[NewsScanner] No articles in 4h window, retrying with 12h lookback...")
+            return self.fetch_latest_news(hours_lookback=12)
+            
         return recent_news
         
     def _clean_html(self, text: str) -> str:
