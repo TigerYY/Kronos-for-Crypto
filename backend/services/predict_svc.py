@@ -124,7 +124,8 @@ def get_rag_analysis() -> dict:
     """
     global _rag_cache
     now = time.time()
-    if _rag_cache["decision"] is None or (now - _rag_cache["timestamp"] > 300):
+    # RAG 缓存 10 分钟（Ollama keep_alive=15min，确保每次刷新时模型已热载）
+    if _rag_cache["decision"] is None or (now - _rag_cache["timestamp"] > 600):
         try:
             scanner = NewsScanner()
             news = scanner.fetch_latest_news(hours_lookback=4)

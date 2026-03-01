@@ -7,19 +7,23 @@ Macro RAG - LLM Analyzer Service (Phase 3)
 
 import os
 import json
+import time
 from openai import OpenAI
 
 # 默认使用本地 Ollama 的通用端口
 OLLAMA_API_BASE = os.getenv("OLLAMA_API_BASE", "http://localhost:11434/v1")
 # 支持用户自定义模型名称 (qwen2.5, qwen2.5-coder, deepseek-coder 等)
 OLLAMA_MODEL_NAME = os.getenv("OLLAMA_MODEL_NAME", "deepseek-r1:8b")
+# Ollama 推理超时时间(秒)，需覆盖冷启动加载模型的时间（通常 5-30s）
+OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "90"))
 
 class RAGAnalyzer:
     def __init__(self):
         # Ollama 无需真实 API Key，但 openai 库要求此字段不能为空白
         self.client = OpenAI(
             base_url=OLLAMA_API_BASE,
-            api_key="ollama-local" 
+            api_key="ollama-local",
+            timeout=OLLAMA_TIMEOUT,  # 覆盖 Ollama 冷启动加载模型的时间
         )
         self.model = OLLAMA_MODEL_NAME
 
@@ -61,16 +65,27 @@ RULES:
         user_prompt = f"Analyze the following immediate news breaking in the last 4 hours and evaluate the macro necessity for a system override:\n\n{context}"
 
         try:
-            # print(f"[RAGAnalyzer] Sending prompt to local Ollama ({self.model})...")
-            response = self.client.chat.completions.create(
-                model=self.model,
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": user_prompt}
-                ],
-                temperature=0.0, # We want deterministic logic
-                max_tokens=600
-            )
+            # Ollama 冷启动时会返回 503，此时稍等后重试一次
+            for attempt in range(2):
+                try:
+                    response = self.client.chat.completions.create(
+                        model=self.model,
+                        messages=[
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        temperature=0.0,
+                        max_tokens=600,
+                        extra_body={"keep_alive": "15m"}  # 让 Ollama 保持模型 15分钟不卸载
+                    )
+                    break  # 成功则跳出重试循环
+                except Exception as inner_e:
+                    err_str = str(inner_e)
+                    if "503" in err_str and attempt == 0:
+                        print(f"[RAGAnalyzer] Ollama 冷启动中 (503)，等待 5s 后重试...")
+                        time.sleep(5)
+                        continue
+                    raise  # 其他错误或重试失败则抛出
             
             raw_text = response.choices[0].message.content.strip()
             
