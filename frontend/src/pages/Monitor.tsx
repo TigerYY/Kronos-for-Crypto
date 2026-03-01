@@ -372,7 +372,7 @@ export default function Monitor() {
         {/* Custom RL Value Card with Visual Gauge */}
         <div className="glass-panel p-3 lg:p-4 rounded-xl flex flex-col justify-between border-t border-white/10 relative overflow-hidden group">
           <div className="flex justify-between items-center z-10">
-            <span className="text-[11px] font-medium text-slate-400 tracking-wide">RL 风控期望</span>
+            <span className="text-[11px] font-medium text-slate-400 tracking-wide">RL 盈亏比预测</span>
           </div>
           <div className="mt-1.5 md:mt-2 z-10 flex flex-col gap-1.5">
             <div className="flex items-center gap-1.5 overflow-hidden">
