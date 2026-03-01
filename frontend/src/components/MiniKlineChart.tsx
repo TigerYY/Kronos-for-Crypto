@@ -49,6 +49,13 @@ export default function MiniKlineChart({ data, predSeries, symbol, timeframe }: 
     const predTraces = useMemo(() => {
         if (!predSeries?.length || !data?.length) return [];
         const lastTsStr = data[data.length - 1].timestamps;
+        const lastClose = data[data.length - 1].close;
+
+        // 整体趋势决定统一颜色，让预测区域色系纯净
+        const finalBar = predSeries[predSeries.length - 1];
+        const isUpward = finalBar.close >= lastClose;
+        const NEAR_COLOR = isUpward ? "#00f0ff" : "#f97316";
+        const FAR_COLOR = isUpward ? "rgba(0,240,255,0.30)" : "rgba(249,115,22,0.30)";
 
         let lastMs = parseToMs(lastTsStr);
 
@@ -70,25 +77,21 @@ export default function MiniKlineChart({ data, predSeries, symbol, timeframe }: 
             return { x: xMs, open: pOpen, high: pHigh, low: pLow, close: pClose };
         };
 
-        const nearGroup = buildGroup(predSeries.slice(0, 4));  // 近期: full opacity
-        const farGroup = buildGroup(predSeries.slice(4, 8));  // 远期: faded opacity
+        const nearGroup = buildGroup(predSeries.slice(0, 4));
+        const farGroup = buildGroup(predSeries.slice(4, 8));
 
-        const CYAN = "#00f0ff";
-        const ORANGE = "#f97316";
-        const CYAN_FADED = "rgba(0,240,255,0.30)";
-        const ORANGE_FADED = "rgba(249,115,22,0.30)";
-
-        const makeTrace = (group: ReturnType<typeof buildGroup>, upColor: string, downColor: string, suffix: string) => ({
+        // increasing 和 decreasing 都设为同一颜色，不按单根涨跌着色
+        const makeTrace = (group: ReturnType<typeof buildGroup>, color: string, suffix: string) => ({
             ...group,
             type: "candlestick",
             name: `AI预测_${suffix}`,
-            increasing: { line: { color: upColor, width: 1 }, fillcolor: upColor },
-            decreasing: { line: { color: downColor, width: 1 }, fillcolor: downColor },
+            increasing: { line: { color, width: 1 }, fillcolor: color },
+            decreasing: { line: { color, width: 1 }, fillcolor: color },
         });
 
         return [
-            makeTrace(nearGroup, CYAN, ORANGE, "near"),
-            makeTrace(farGroup, CYAN_FADED, ORANGE_FADED, "far"),
+            makeTrace(nearGroup, NEAR_COLOR, "near"),
+            makeTrace(farGroup, FAR_COLOR, "far"),
         ];
     }, [predSeries, data, timeframe]);
 
