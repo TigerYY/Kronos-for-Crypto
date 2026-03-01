@@ -290,7 +290,8 @@ class RotaryPositionalEmbedding(nn.Module):
         self.cos_cached = None
         self.sin_cached = None
 
-    def _update_cos_sin_cache(self, x, seq_len):
+    def _get_cos_sin(self, x, seq_len):
+        """seq_len 单独计算 cos/sin，支持 cross-attention 中 q 和 k 长度不一致的场景"""
         if seq_len != self.seq_len_cached:
             self.seq_len_cached = seq_len
             t = torch.arange(seq_len, device=x.device).type_as(self.inv_freq)
@@ -301,11 +302,32 @@ class RotaryPositionalEmbedding(nn.Module):
         return self.cos_cached, self.sin_cached
 
     def forward(self, q, k):
-        cos, sin = self._update_cos_sin_cache(q, q.shape[-2])
-        return (
-            (q * cos) + (self._rotate_half(q) * sin),
-            (k * cos) + (self._rotate_half(k) * sin),
-        )
+        q_len = q.shape[-2]
+        k_len = k.shape[-2]
+
+        if q_len == k_len:
+            # 自注意力场景: q/k 长度相同，共用缓存
+            cos, sin = self._get_cos_sin(q, q_len)
+            q_out = (q * cos) + (self._rotate_half(q) * sin)
+            k_out = (k * cos) + (self._rotate_half(k) * sin)
+        else:
+            # 交叉注意力场景: q/k 长度不同，分别计算
+            t_q = torch.arange(q_len, device=q.device).type_as(self.inv_freq)
+            freqs_q = torch.einsum('i,j->ij', t_q, self.inv_freq)
+            emb_q = torch.cat((freqs_q, freqs_q), dim=-1)
+            cos_q = emb_q.cos()[None, None, :, :]
+            sin_q = emb_q.sin()[None, None, :, :]
+
+            t_k = torch.arange(k_len, device=k.device).type_as(self.inv_freq)
+            freqs_k = torch.einsum('i,j->ij', t_k, self.inv_freq)
+            emb_k = torch.cat((freqs_k, freqs_k), dim=-1)
+            cos_k = emb_k.cos()[None, None, :, :]
+            sin_k = emb_k.sin()[None, None, :, :]
+
+            q_out = (q * cos_q) + (self._rotate_half(q) * sin_q)
+            k_out = (k * cos_k) + (self._rotate_half(k) * sin_k)
+
+        return q_out, k_out
 
     def _rotate_half(self, x):
         x1, x2 = x.chunk(2, dim=-1)

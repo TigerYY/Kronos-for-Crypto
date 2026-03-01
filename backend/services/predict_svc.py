@@ -3,6 +3,7 @@ Prediction service: lazy-loads CryptoSimulator, runs multi-timeframe predict + s
 """
 import os
 import sys
+from datetime import datetime, timezone
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if ROOT not in sys.path:
