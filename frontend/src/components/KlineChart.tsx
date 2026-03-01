@@ -112,17 +112,19 @@ export default function KlineChart({ data, predSeries, symbol, timeframe, minima
 
     // 3. Add AI Prediction Projection Overlay (Line)
     if (!minimal && predSeries && predSeries.length > 0 && data && data.length > 0) {
+      const lastCandle = data[data.length - 1];
+      const lastUnix = parseToUnix(lastCandle.timestamps) as number;
+      const lastClose = lastCandle.close;
+      const finalPred = predSeries[predSeries.length - 1];
+      const isUpward = finalPred >= lastClose;
+
       const predLineSeries = chart.addSeries(LineSeries, {
-        color: "#00f0ff", // neon-cyan
+        color: isUpward ? "#00f0ff" : "#f97316", // neon-cyan (up) or orange (down)
         lineWidth: 2,
         lineStyle: 1, // Dashed
         crosshairMarkerVisible: true,
         lastPriceAnimation: 1,
       });
-
-      const lastCandle = data[data.length - 1];
-      const lastUnix = parseToUnix(lastCandle.timestamps) as number;
-      const lastClose = lastCandle.close;
 
       const predTvData: { time: Time; value: number }[] = [];
 
