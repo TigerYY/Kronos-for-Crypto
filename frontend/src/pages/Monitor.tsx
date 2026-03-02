@@ -218,70 +218,86 @@ export default function Monitor() {
       )}
 
       {/* RAG Macro Intervention Radar */}
-      {rag && (
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{
-            opacity: 1,
-            y: 0,
-            scale: isRagAlert ? [1, 1.02, 1] : 1,
-            boxShadow: isRagAlert ? ["0px 0px 0px rgba(225,29,72,0)", "0px 0px 30px rgba(225,29,72,0.6)", "0px 0px 0px rgba(225,29,72,0)"] : "none",
-          }}
-          transition={{
-            duration: 0.5,
-            scale: isRagAlert ? { repeat: Infinity, duration: 2 } : { duration: 0.5 },
-            boxShadow: isRagAlert ? { repeat: Infinity, duration: 2 } : { duration: 0.5 }
-          }}
-          className={`p-3 lg:p-4 rounded-xl border flex items-center justify-between gap-4 lg:gap-6 transition-colors duration-500 overflow-hidden ${isRagAlert ? 'bg-rose-950/40 border-rose-500/50 shadow-[0_0_15px_rgba(225,29,72,0.3)]' : 'bg-slate-900/40 border-slate-700/50'}`}
-        >
-          {/* Const Left Area */}
-          <div className="flex items-center gap-2.5 whitespace-nowrap flex-shrink-0">
-            <div className={`w-2.5 h-2.5 rounded-full ${rag.sentiment === 'EXTREME_BEARISH' || rag.sentiment === 'NEGATIVE' ? 'bg-rose-500 shadow-[0_0_8px_rgba(225,29,72,0.8)]' : rag.sentiment === 'EXTREME_BULLISH' || rag.sentiment === 'POSITIVE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]'} animate-pulse`} />
-            <h3 className={`text-xs md:text-sm tracking-widest font-bold ${isRagAlert ? 'text-rose-400' : 'text-slate-400'}`}>
-              {isRagAlert ? "MACRO OVERRIDE" : "宏观雷达"}
-            </h3>
+      {/* RAG Macro Intervention Radar */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{
+          opacity: 1,
+          y: 0,
+          scale: isRagAlert ? [1, 1.02, 1] : 1,
+          boxShadow: isRagAlert ? ["0px 0px 0px rgba(225,29,72,0)", "0px 0px 30px rgba(225,29,72,0.6)", "0px 0px 0px rgba(225,29,72,0)"] : "none",
+        }}
+        transition={{
+          duration: 0.5,
+          scale: isRagAlert ? { repeat: Infinity, duration: 2 } : { duration: 0.5 },
+          boxShadow: isRagAlert ? { repeat: Infinity, duration: 2 } : { duration: 0.5 }
+        }}
+        className={`p-3 lg:p-4 rounded-xl border flex items-center justify-between gap-4 lg:gap-6 transition-all duration-500 overflow-hidden ${rag?.sentiment === 'EXTREME_BEARISH' || rag?.sentiment === 'NEGATIVE'
+          ? 'bg-rose-950/40 border-rose-500/50 shadow-[0_0_20px_rgba(225,29,72,0.3)]'
+          : rag?.sentiment === 'EXTREME_BULLISH' || rag?.sentiment === 'POSITIVE'
+            ? 'bg-emerald-950/40 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.3)]'
+            : 'bg-slate-900/40 border-slate-700/50'
+          }`}
+      >
+        {/* Const Left Area */}
+        <div className="flex items-center gap-2.5 whitespace-nowrap flex-shrink-0">
+          <div className={`w-2.5 h-2.5 rounded-full ${rag?.sentiment === 'EXTREME_BEARISH' || rag?.sentiment === 'NEGATIVE' ? 'bg-rose-500 shadow-[0_0_8px_rgba(225,29,72,0.8)]' : rag?.sentiment === 'EXTREME_BULLISH' || rag?.sentiment === 'POSITIVE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]'} animate-pulse`} />
+          <h3 className={`text-xs md:text-sm tracking-widest font-bold ${isRagAlert ? 'text-rose-400' : 'text-slate-400'}`}>
+            {isRagAlert ? "宏观干预：" : "宏观雷达"}
+          </h3>
+        </div>
+
+        {/* Scrolling Marquee Area */}
+        {rag?.events && rag.events.length > 0 ? (
+          <div className="flex-1 overflow-hidden relative flex items-center h-6 [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)] hidden md:flex">
+            <motion.div
+              animate={{ x: ["0%", "-50%"] }}
+              transition={{ repeat: Infinity, ease: "linear", duration: Math.max(20, rag.events.length * 5) }}
+              className="flex gap-10 whitespace-nowrap w-max px-4 hover:[animation-play-state:paused]"
+            >
+              {[...rag.events, ...rag.events, ...rag.events, ...rag.events].map((evt: any, i: number) => (
+                <span key={i} className={`text-sm font-semibold tracking-wide ${evt.sentiment === 'EXTREME_BULLISH' || evt.sentiment === 'POSITIVE' ? 'text-emerald-400' :
+                  evt.sentiment === 'EXTREME_BEARISH' || evt.sentiment === 'NEGATIVE' ? 'text-rose-400' :
+                    'text-yellow-400/90'
+                  }`}>
+                  {evt.text}
+                </span>
+              ))}
+            </motion.div>
           </div>
+        ) : (
+          <div className="flex-1 text-slate-500 text-xs md:text-sm italic whitespace-nowrap overflow-hidden text-ellipsis hidden md:block">
+            {ragQuery.isLoading ? (
+              <span className="text-neon-cyan/60 animate-pulse flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-neon-cyan animate-bounce" />
+                全球宏观局势嗅探中 (基于 DeepSeek R1)...
+              </span>
+            ) : rag?.reason && (rag.reason.includes("Error") || rag.reason.includes("Offline")) ? (
+              <span className="text-yellow-500/80">⚠️ {rag.reason.includes("503") ? "本地大模型加载拥堵 (GPU资源占用中)，等待重试..." : rag.reason}</span>
+            ) : rag?.sentiment ? (
+              // API 已响应，但当前无重大事件
+              <span className="text-slate-500/70">🌐 {rag.reason === "No recent news." ? "当前无重大宏观事件，市场情绪平稳" : rag.reason || "当前无重大宏观事件"}</span>
+            ) : (
+              // 兜底状态
+              "等待数据更新..."
+            )}
+          </div>
+        )}
 
-          {/* Scrolling Marquee Area */}
-          {rag.events && rag.events.length > 0 ? (
-            <div className="flex-1 overflow-hidden relative flex items-center h-6 [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)] hidden md:flex">
-              <motion.div
-                animate={{ x: ["0%", "-50%"] }}
-                transition={{ repeat: Infinity, ease: "linear", duration: Math.max(20, rag.events.length * 5) }}
-                className="flex gap-10 whitespace-nowrap w-max px-4 hover:[animation-play-state:paused]"
-              >
-                {[...rag.events, ...rag.events, ...rag.events, ...rag.events].map((evt: any, i: number) => (
-                  <span key={i} className={`text-sm font-semibold tracking-wide ${evt.sentiment === 'EXTREME_BULLISH' || evt.sentiment === 'POSITIVE' ? 'text-emerald-400' :
-                    evt.sentiment === 'EXTREME_BEARISH' || evt.sentiment === 'NEGATIVE' ? 'text-rose-400' :
-                      'text-yellow-400/90'
-                    }`}>
-                    {evt.text}
-                  </span>
-                ))}
-              </motion.div>
-            </div>
-          ) : (
-            <div className="flex-1 text-slate-500 text-xs md:text-sm italic whitespace-nowrap overflow-hidden text-ellipsis hidden md:block">
-              {rag.reason && (rag.reason.includes("Error") || rag.reason.includes("Offline")) ? (
-                <span className="text-yellow-500/80">⚠️ {rag.reason.includes("503") ? "本地大模型加载拥堵 (GPU资源占用中)，等待重试..." : rag.reason}</span>
-              ) : rag.sentiment ? (
-                // API 已响应，但当前无重大事件
-                <span className="text-slate-500/70">🌐 {rag.reason === "No recent news." ? "当前无重大宏观事件，市场情绪平稳" : rag.reason || "当前无重大宏观事件"}</span>
-              ) : (
-                // 首次启动，尚未收到任何响应
-                "全球嗅探中..."
-              )}
-            </div>
-          )}
-
-          {/* Action Badge & Timestamp */}
-          {(isRagAlert || (rag.reason && (rag.reason.includes("Error") || rag.reason.includes("Offline")) && rag.last_updated_time)) && (
-            <div className={`px-3 py-1 rounded font-bold tracking-widest text-xs md:text-sm border flex-shrink-0 ${isRagAlert ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-yellow-500/10 text-yellow-500/70 border-yellow-500/20'}`}>
-              {isRagAlert ? `OVERRIDE: ${rag.override_signal}` : `嗅探延迟 (旧缓存: ${rag.last_updated_time})`}
-            </div>
-          )}
-        </motion.div>
-      )}
+        {/* Action Badge or Stale Indicator Dot */}
+        {isRagAlert ? (
+          <div className="px-3 py-1 rounded font-bold tracking-widest text-xs md:text-sm border flex-shrink-0 bg-rose-500/20 text-rose-400 border-rose-500/30">
+            {rag.override_signal === 'SELL' ? '锁定利润/卖出' : rag.override_signal === 'BUY' ? '抢先买入' : rag.override_signal}
+          </div>
+        ) : (rag?.reason && (rag.reason.includes("Error") || rag.reason.includes("Offline")) && rag.last_updated_time) ? (
+          <div
+            className="flex items-center justify-center p-2 flex-shrink-0 cursor-help"
+            title={`嗅探延迟 (旧缓存: ${rag.last_updated_time})`}
+          >
+            <div className="w-2 h-2 rounded-full bg-yellow-500/80 animate-pulse shadow-[0_0_8px_rgba(234,179,8,0.5)]" />
+          </div>
+        ) : null}
+      </motion.div>
 
       {/* KPI Metrics */}
       <motion.div variants={itemVariants} className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2 lg:gap-3">

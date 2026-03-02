@@ -28,40 +28,61 @@ class NewsScanner:
         
     def fetch_latest_news(self, hours_lookback: int = 4) -> List[Dict[str, str]]:
         """
-        拉取各大 RSS 源中，过去 `hours_lookback` 小时内的重大新闻。
+        并发拉取各大 RSS 源中，过去 `hours_lookback` 小时内的重大新闻。
         返回格式: [{'title': '...', 'summary': '...', 'published': '...', 'source': '...'}]
         """
+        import concurrent.futures
+        
         recent_news = []
         now = datetime.now(timezone.utc).timestamp()
         cutoff_time = now - (hours_lookback * 3600)
         
-        for feed_url in self.feeds:
+        def fetch_single_feed(feed_url):
             try:
+                # 设置全局 User-Agent 避免某些源屏蔽默认标识
+                feedparser.USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+                
+                # feedparser.parse 在底层使用 urllib，设置 timeout 有点麻烦，
+                # 但并发环境下我们可以给整个 future 设置 timeout
                 parsed_feed = feedparser.parse(feed_url)
                 
+                feed_items = []
                 for entry in parsed_feed.entries:
-                    # feedparser 的 published_parsed 是 UTC struct_time
-                    # 必须用 calendar.timegm() 而不是 time.mktime()，
-                    # 因为 mktime 会将其当作本地时间处理，导致时区偏差
                     published_ts = None
                     if hasattr(entry, 'published_parsed') and entry.published_parsed:
-                        published_ts = calendar.timegm(entry.published_parsed)  # UTC-safe
+                        published_ts = calendar.timegm(entry.published_parsed)
                     elif hasattr(entry, 'updated_parsed') and entry.updated_parsed:
-                        published_ts = calendar.timegm(entry.updated_parsed)    # fallback to updated
+                        published_ts = calendar.timegm(entry.updated_parsed)
                     
                     if published_ts and published_ts >= cutoff_time:
                         title = entry.get('title', '')
                         summary = entry.get('summary', '')
                         summary = self._clean_html(summary)
                         
-                        recent_news.append({
+                        feed_items.append({
                             'title': title,
                             'summary': summary,
                             'published_ts': published_ts,
                             'source': feed_url.split('/')[2]
                         })
+                return feed_items
             except Exception as e:
                 print(f"[NewsScanner] Error fetching feed {feed_url}: {e}")
+                return []
+
+        # 使用线程池并发抓取
+        with concurrent.futures.ThreadPoolExecutor(max_workers=len(self.feeds)) as executor:
+            # 设置每条抓取的超时时间为 15 秒
+            future_to_url = {executor.submit(fetch_single_feed, url): url for url in self.feeds}
+            for future in concurrent.futures.as_completed(future_to_url):
+                url = future_to_url[future]
+                try:
+                    data = future.result(timeout=15)
+                    recent_news.extend(data)
+                except Exception as exc:
+                    print(f"[NewsScanner] {url} generated an exception: {exc}")
+
+        # 按时间倒序排序 (最新的在前)
                 
         # 按时间倒序排序 (最新的在前)
         recent_news.sort(key=lambda x: x['published_ts'], reverse=True)

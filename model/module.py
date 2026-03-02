@@ -1,4 +1,5 @@
 import math
+import threading
 
 from einops import rearrange, reduce
 import torch
@@ -289,16 +290,30 @@ class RotaryPositionalEmbedding(nn.Module):
         self.seq_len_cached = None
         self.cos_cached = None
         self.sin_cached = None
+        self._lock = threading.Lock() # 线程锁，防止并发推理时缓存竞争
 
     def _get_cos_sin(self, x, seq_len):
         """seq_len 单独计算 cos/sin，支持 cross-attention 中 q 和 k 长度不一致的场景"""
-        if seq_len != self.seq_len_cached:
-            self.seq_len_cached = seq_len
+        # 如果缓存有效且长度匹配，直接返回
+        if self.cos_cached is not None and seq_len == self.seq_len_cached:
+            return self.cos_cached, self.sin_cached
+            
+        with self._lock:
+            # 进入锁后再检查一次 (Double-check)
+            if self.cos_cached is not None and seq_len == self.seq_len_cached:
+                return self.cos_cached, self.sin_cached
+                
             t = torch.arange(seq_len, device=x.device).type_as(self.inv_freq)
             freqs = torch.einsum('i,j->ij', t, self.inv_freq)
             emb = torch.cat((freqs, freqs), dim=-1).to(x.device)
-            self.cos_cached = emb.cos()[None, None, :, :]
-            self.sin_cached = emb.sin()[None, None, :, :]
+            new_cos = emb.cos()[None, None, :, :]
+            new_sin = emb.sin()[None, None, :, :]
+            
+            # 最后再更新缓存，确保原子性
+            self.cos_cached = new_cos
+            self.sin_cached = new_sin
+            self.seq_len_cached = seq_len
+            
         return self.cos_cached, self.sin_cached
 
     def forward(self, q, k):

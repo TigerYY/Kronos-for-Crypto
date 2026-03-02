@@ -4,6 +4,7 @@ Prediction service: lazy-loads CryptoSimulator, runs multi-timeframe predict + s
 import os
 import sys
 from datetime import datetime, timezone
+import threading
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 if ROOT not in sys.path:
@@ -19,13 +20,16 @@ import threading
 _rag_cache = {"timestamp": 0, "decision": None}
 _rag_lock = threading.Lock()  # 防止并发刷新多次触发 Ollama 冷启动
 _simulator: CryptoSimulator | None = None
+_sim_lock = threading.Lock()   # 防止多线程重复加载模型
 DEFAULT_TIMEFRAMES = ["5m", "15m", "1h", "4h", "1d"]
 
 
 def get_simulator() -> CryptoSimulator:
     global _simulator
     if _simulator is None:
-        _simulator = CryptoSimulator()
+        with _sim_lock:
+            if _simulator is None:  # Double check
+                _simulator = CryptoSimulator()
     return _simulator
 
 
@@ -126,15 +130,15 @@ def get_rag_analysis() -> dict:
     """
     global _rag_cache
     now = time.time()
-    # RAG 缓存 10 分钟（Ollama keep_alive=15min，确保每次刷新时模型已热载）
-    if _rag_cache["decision"] is not None and (now - _rag_cache["timestamp"] <= 600):
+    # RAG 缓存 5 分钟（确保逻辑变更后更快露出）
+    if _rag_cache["decision"] is not None and (now - _rag_cache["timestamp"] <= 300):
         return _rag_cache["decision"]  # 直接返回缓存，不需加锁
 
-    # 加锁后再次检查（防止多个并发请求同时触发所 Ollama 冷启动）
+    # 加锁后再次检查
     with _rag_lock:
-        now = time.time()  # 重新获取时间，因为可能等锁期间已有其他线程刷新了缓存
-        if _rag_cache["decision"] is not None and (now - _rag_cache["timestamp"] <= 600):
-            return _rag_cache["decision"]  # 双重检查，避免重复推理
+        now = time.time()
+        if _rag_cache["decision"] is not None and (now - _rag_cache["timestamp"] <= 300):
+            return _rag_cache["decision"]
         try:
             scanner = NewsScanner()
             news = scanner.fetch_latest_news(hours_lookback=4)
@@ -144,14 +148,15 @@ def get_rag_analysis() -> dict:
             # Formulate the updated time
             current_dt_str = datetime.now(timezone.utc).astimezone().strftime("%H:%M")
             
-            # Retain old events if the new fetch failed to produce any
-            if "LLM Error" in new_decision.get("reason", "") or not new_decision.get("events"):
+            # Retain old events ONLY if the new fetch failed to produce any (new_decision.events is empty)
+            if not new_decision.get("events"):
                 old_events = _rag_cache["decision"].get("events", []) if _rag_cache["decision"] else []
                 old_time = _rag_cache["decision"].get("last_updated_time", "") if _rag_cache["decision"] else ""
                 if old_events:
                     new_decision["events"] = old_events
                     new_decision["last_updated_time"] = old_time
             else:
+                # If we have events (either from LLM or fallback), set the updated time
                 new_decision["last_updated_time"] = current_dt_str
                     
             _rag_cache["decision"] = new_decision
@@ -160,13 +165,14 @@ def get_rag_analysis() -> dict:
             print(f"[PredictSvc] RAG fetching error: {e}")
             old_events = _rag_cache["decision"].get("events", []) if _rag_cache["decision"] else []
             old_time = _rag_cache["decision"].get("last_updated_time", "") if _rag_cache["decision"] else ""
-            _rag_cache["decision"] = {
+            
+            # 发生错误时不更新 timestamp，这样下次请求会立即重试而不是等待 10 分钟缓存
+            return {
                 "sentiment": "NEUTRAL", 
                 "override_signal": "NONE", 
-                "reason": "RAG Offline", 
+                "reason": f"LLM Error: {str(e)}", 
                 "events": old_events,
                 "last_updated_time": old_time
             }
-            _rag_cache["timestamp"] = now
             
     return _rag_cache["decision"]

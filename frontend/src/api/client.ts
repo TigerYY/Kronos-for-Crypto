@@ -31,7 +31,7 @@ export type OhlcvBar = {
 export type PredictResponse = {
   current_price: number;
   predictions: Record<string, number>;
-  pred_series: Record<string, number[]>;
+  pred_series: Record<string, { open: number; high: number; low: number; close: number }[]>;
   signal: {
     action: string;
     confidence: number;
