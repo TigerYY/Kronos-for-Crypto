@@ -61,6 +61,7 @@ export default function Monitor() {
     queryKey: ["rag"],
     queryFn: () => getRag(),
     refetchInterval: autoRefresh ? REFRESH_INTERVAL_MS : false,
+    retry: false, // 禁用自动重试，避免后端接口阻塞时长叠加
   });
 
   // 3. 并发获取底部 4 张卡片的微型背景 K 线（只取 50 根）
@@ -225,53 +226,70 @@ export default function Monitor() {
           opacity: 1,
           y: 0,
           scale: isRagAlert ? [1, 1.02, 1] : 1,
-          boxShadow: isRagAlert ? ["0px 0px 0px rgba(225,29,72,0)", "0px 0px 30px rgba(225,29,72,0.6)", "0px 0px 0px rgba(225,29,72,0)"] : "none",
+          boxShadow: isRagAlert
+            ? (rag.override_signal === 'SELL'
+              ? ["0px 0px 0px rgba(225,29,72,0)", "0px 0px 30px rgba(225,29,72,0.6)", "0px 0px 0px rgba(225,29,72,0)"]
+              : ["0px 0px 0px rgba(16,185,129,0)", "0px 0px 30px rgba(16,185,129,0.6)", "0px 0px 0px rgba(16,185,129,0)"])
+            : "none",
         }}
         transition={{
           duration: 0.5,
           scale: isRagAlert ? { repeat: Infinity, duration: 2 } : { duration: 0.5 },
           boxShadow: isRagAlert ? { repeat: Infinity, duration: 2 } : { duration: 0.5 }
         }}
-        className={`p-3 lg:p-4 rounded-xl border flex items-center justify-between gap-4 lg:gap-6 transition-all duration-500 overflow-hidden ${rag?.sentiment === 'EXTREME_BEARISH' || rag?.sentiment === 'NEGATIVE'
+        className={`p-3 lg:p-4 rounded-xl border flex flex-col md:flex-row items-start md:items-center justify-between gap-3 md:gap-4 lg:gap-6 transition-all duration-500 overflow-hidden ${rag?.override_signal === 'SELL' || (rag?.sentiment === 'EXTREME_BEARISH' || rag?.sentiment === 'NEGATIVE')
           ? 'bg-rose-950/40 border-rose-500/50 shadow-[0_0_20px_rgba(225,29,72,0.3)]'
-          : rag?.sentiment === 'EXTREME_BULLISH' || rag?.sentiment === 'POSITIVE'
+          : rag?.override_signal === 'BUY' || (rag?.sentiment === 'EXTREME_BULLISH' || rag?.sentiment === 'POSITIVE')
             ? 'bg-emerald-950/40 border-emerald-500/50 shadow-[0_0_20px_rgba(16,185,129,0.3)]'
             : 'bg-slate-900/40 border-slate-700/50'
           }`}
       >
         {/* Const Left Area */}
-        <div className="flex items-center gap-2.5 whitespace-nowrap flex-shrink-0">
-          <div className={`w-2.5 h-2.5 rounded-full ${rag?.sentiment === 'EXTREME_BEARISH' || rag?.sentiment === 'NEGATIVE' ? 'bg-rose-500 shadow-[0_0_8px_rgba(225,29,72,0.8)]' : rag?.sentiment === 'EXTREME_BULLISH' || rag?.sentiment === 'POSITIVE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]'} animate-pulse`} />
-          <h3 className={`text-xs md:text-sm tracking-widest font-bold ${isRagAlert ? 'text-rose-400' : 'text-slate-400'}`}>
-            {isRagAlert ? "宏观干预：" : "宏观雷达"}
-          </h3>
+        <div className="flex items-center justify-between w-full md:w-auto gap-2.5 whitespace-nowrap flex-shrink-0">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-2.5 h-2.5 rounded-full ${rag?.override_signal === 'SELL' || rag?.sentiment === 'EXTREME_BEARISH' || rag?.sentiment === 'NEGATIVE' ? 'bg-rose-500 shadow-[0_0_8px_rgba(225,29,72,0.8)]' : rag?.override_signal === 'BUY' || rag?.sentiment === 'EXTREME_BULLISH' || rag?.sentiment === 'POSITIVE' ? 'bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]' : 'bg-yellow-500 shadow-[0_0_8px_rgba(234,179,8,0.8)]'} animate-pulse`} />
+            <h3 className={`text-xs md:text-sm tracking-widest font-bold ${isRagAlert ? (rag.override_signal === 'SELL' ? 'text-rose-400' : 'text-emerald-400') : 'text-slate-400'}`}>
+              {isRagAlert ? "宏观干预：" : "宏观雷达"}
+            </h3>
+          </div>
+
+          {/* Action Badge logic moved here for mobile layout */}
+          <div className="md:hidden flex items-center">
+            {isRagAlert && (
+              <div className={`px-2 py-0.5 rounded font-bold tracking-widest text-[10px] border flex-shrink-0 ${rag.override_signal === 'SELL' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'}`}>
+                {rag.override_signal === 'SELL' ? '锁定利润/卖出' : rag.override_signal === 'BUY' ? '抢先买入' : rag.override_signal}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Scrolling Marquee Area */}
         {rag?.events && rag.events.length > 0 ? (
-          <div className="flex-1 overflow-hidden relative flex items-center h-6 [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)] hidden md:flex">
+          <div className="w-full md:flex-1 overflow-hidden relative flex items-center h-6 [mask-image:linear-gradient(to_right,transparent,black_5%,black_95%,transparent)]">
             <motion.div
               animate={{ x: ["0%", "-50%"] }}
               transition={{ repeat: Infinity, ease: "linear", duration: Math.max(20, rag.events.length * 5) }}
-              className="flex gap-10 whitespace-nowrap w-max px-4 hover:[animation-play-state:paused]"
+              className="flex gap-4 md:gap-10 whitespace-nowrap w-max px-4 hover:[animation-play-state:paused]"
             >
               {[...rag.events, ...rag.events, ...rag.events, ...rag.events].map((evt: any, i: number) => (
-                <span key={i} className={`text-sm font-semibold tracking-wide ${evt.sentiment === 'EXTREME_BULLISH' || evt.sentiment === 'POSITIVE' ? 'text-emerald-400' :
+                <span key={i} className={`text-xs md:text-sm font-semibold tracking-wide flex items-center gap-2 md:gap-4 ${evt.sentiment === 'EXTREME_BULLISH' || evt.sentiment === 'POSITIVE' ? 'text-emerald-400' :
                   evt.sentiment === 'EXTREME_BEARISH' || evt.sentiment === 'NEGATIVE' ? 'text-rose-400' :
                     'text-yellow-400/90'
                   }`}>
-                  {evt.text}
+                  <span className="text-white/20">•</span> {evt.text}
                 </span>
               ))}
             </motion.div>
           </div>
         ) : (
-          <div className="flex-1 text-slate-500 text-xs md:text-sm italic whitespace-nowrap overflow-hidden text-ellipsis hidden md:block">
+          <div className="w-full md:flex-1 text-slate-500 text-xs md:text-sm italic whitespace-nowrap overflow-hidden text-ellipsis">
             {ragQuery.isLoading ? (
               <span className="text-neon-cyan/60 animate-pulse flex items-center gap-2">
                 <div className="w-1.5 h-1.5 rounded-full bg-neon-cyan animate-bounce" />
-                全球宏观局势嗅探中 (基于 DeepSeek R1)...
+                全球宏观局势智能分析中...
               </span>
+            ) : ragQuery.isError ? (
+              <span className="text-rose-500/80">⚠️ 大模型服务响应超时或离线，请检查本地 Ollama 状态</span>
             ) : rag?.reason && (rag.reason.includes("Error") || rag.reason.includes("Offline")) ? (
               <span className="text-yellow-500/80">⚠️ {rag.reason.includes("503") ? "本地大模型加载拥堵 (GPU资源占用中)，等待重试..." : rag.reason}</span>
             ) : rag?.sentiment ? (
@@ -284,9 +302,9 @@ export default function Monitor() {
           </div>
         )}
 
-        {/* Action Badge or Stale Indicator Dot */}
+        {/* Action Badge or Stale Indicator Dot (Desktop only, mobile moved up) */}
         {isRagAlert ? (
-          <div className="px-3 py-1 rounded font-bold tracking-widest text-xs md:text-sm border flex-shrink-0 bg-rose-500/20 text-rose-400 border-rose-500/30">
+          <div className={`hidden md:block px-3 py-1 rounded font-bold tracking-widest text-xs md:text-sm border flex-shrink-0 ${rag.override_signal === 'SELL' ? 'bg-rose-500/20 text-rose-400 border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'}`}>
             {rag.override_signal === 'SELL' ? '锁定利润/卖出' : rag.override_signal === 'BUY' ? '抢先买入' : rag.override_signal}
           </div>
         ) : (rag?.reason && (rag.reason.includes("Error") || rag.reason.includes("Offline")) && rag.last_updated_time) ? (

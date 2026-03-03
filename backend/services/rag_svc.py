@@ -18,7 +18,7 @@ OLLAMA_API_BASE = os.getenv("OLLAMA_API_BASE", "http://localhost:11434/v1")
 # 支持用户自定义模型名称 (优先使用更轻量的 1.5b 以避免 Mac GPU 拥堵)
 OLLAMA_MODEL_NAME = os.getenv("OLLAMA_MODEL_NAME", "deepseek-r1:1.5b")
 # Ollama 推理超时时间(秒)，需覆盖冷启动加载模型的时间
-OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "45"))
+OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "30"))
 
 class RAGAnalyzer:
     def __init__(self):
@@ -247,7 +247,7 @@ class RAGAnalyzer:
                 pass
 
         last_err = None
-        for attempt in range(3):
+        for attempt in range(2):
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
@@ -264,9 +264,9 @@ class RAGAnalyzer:
                 last_err = inner_e
                 err_str = str(inner_e).lower()
                 # 503, Overloaded, Connection, Timeout are retryable
-                if any(k in err_str for k in ["503", "overloaded", "connection", "timeout"]) and attempt < 2:
-                    print(f"[RAGAnalyzer] Ollama 繁忙或响应慢 (Attempt {attempt+1}/3), 等待 5s 后重试...")
-                    time.sleep(5)
+                if any(k in err_str for k in ["503", "overloaded", "connection", "timeout"]) and attempt < 1:
+                    print(f"[RAGAnalyzer] Ollama 繁忙或响应慢 (Attempt {attempt+1}/2), 等待 3s 后重试...")
+                    time.sleep(3)
                     continue
                 break # Non-retryable or exhausted
         
@@ -275,7 +275,7 @@ class RAGAnalyzer:
         try:
             full_prompt = f"{system_prompt}\n\n{user_prompt}"
             cmd = ["ollama", "run", self.model, full_prompt]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode == 0:
                 return result.stdout.strip()
             else:
