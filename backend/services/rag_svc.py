@@ -18,7 +18,7 @@ OLLAMA_API_BASE = os.getenv("OLLAMA_API_BASE", "http://localhost:11434/v1")
 # 支持用户自定义模型名称 (优先使用更轻量的 1.5b 以避免 Mac GPU 拥堵)
 OLLAMA_MODEL_NAME = os.getenv("OLLAMA_MODEL_NAME", "deepseek-r1:1.5b")
 # Ollama 推理超时时间(秒)，需覆盖冷启动加载模型的时间
-OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "30"))
+OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "60"))
 
 class RAGAnalyzer:
     def __init__(self):
@@ -43,14 +43,14 @@ class RAGAnalyzer:
         for idx, item in enumerate(news_items[:15]):
             context += f"{(idx+1)}. [Source: {item.get('source', '')}] {item.get('title', '')} - {item.get('summary', '')}\n"
 
-        system_prompt = """你是一个专业的对冲基金风险管理 AI。
-你的唯一任务是监测可能引发系统性风险或重大机会的宏观/加密货币“黑天鹅”事件，并据此判断是否需要对此前的技术交易信号进行人工干预或熔断。
+        系统任务：你是一个专注于加密货币（尤其是比特币 BTC）量化交易的风险管理 AI。
+你的唯一任务是监测可能引发系统性风险或重大机会的宏观/加密货币“黑天鹅”事件（例如：ETF 资金流向变化、减半周期动态、大户/机构（如 MicroStrategy）增持或抛售、交易所被盗、监管打压、门头沟抛压等），并据此判断是否需要对此前的技术交易信号进行人工干预或熔断。
 
 规则：
 1. 必须且仅输出 JSON 格式。
-2. `events` 数组必须准确包含 12 条简练的新闻摘要，用于 UI 滚动展示。
-3. 所有 `text` 字段必须使用简练、专业的 **简体中文**。
-4. 严禁在 `text` 中出现完整的英文句子。仅允许保留必要的专业缩写。
+2. `events` 数组须包含有价值的新闻摘要，用于 UI 滚动展示。
+3. 🚨 极其重要：所有 `text` 字段必须使用地道的 **简体中文**！你必须把输入的英文新闻翻译成中文！
+4. 严禁在 `text` 中输出原始的英文句子。仅允许保留必要的专有缩写(如 BTC, SEC)。
 5. 顶层的 `sentiment` 必须从 [EXTREME_BEARISH, EXTREME_BULLISH, NEUTRAL, MIXED] 中选择（必须使用英文原词）。
 6. 顶层的 `override_signal` 必须从 [SELL, BUY, NONE] 中选择（必须使用英文原词）。
 7. 禁止使用占位符文本。
@@ -106,6 +106,11 @@ class RAGAnalyzer:
             if raw_text.endswith(","):
                 raw_text = raw_text[:-1]
 
+            import re
+            # Clean up trailing commas inside objects and arrays that break json.loads
+            raw_text = re.sub(r',\s*}', '}', raw_text)
+            raw_text = re.sub(r',\s*]', ']', raw_text)
+
             try:
                 result = json.loads(raw_text, strict=False)
             except:
@@ -151,6 +156,15 @@ class RAGAnalyzer:
                         e["text"] = cleaned_text
                     else:
                         e["text"] = "全球宏观局势：市场焦点"
+                        
+            # Deduplicate events by text to prevent repetitive lines
+            seen_texts = set()
+            unique_events = []
+            for e in events:
+                if e["text"] not in seen_texts:
+                    seen_texts.add(e["text"])
+                    unique_events.append(e)
+            events = unique_events
 
             return {
                 "sentiment": result.get("sentiment", "NEUTRAL"),
@@ -184,12 +198,19 @@ class RAGAnalyzer:
                         neg_count += 1
                     
                     chinese_text = self._apply_fallback_translation(title, sentiment)
-                    if not chinese_text:
-                        chinese_text = "宏观市场动态：请关注"
-                    
-                    fallback_events.append({"text": chinese_text, "sentiment": sentiment})
+                    if chinese_text:
+                        fallback_events.append({"text": chinese_text, "sentiment": sentiment})
                 
-                # If no events at all, dummy
+                # Deduplicate fallback events
+                seen_fallback = set()
+                unique_fallback = []
+                for e in fallback_events:
+                    if e["text"] not in seen_fallback:
+                        seen_fallback.add(e["text"])
+                        unique_fallback.append(e)
+                fallback_events = unique_fallback
+
+                # If no events matched keywords, provide a single generic event
                 if not fallback_events:
                     fallback_events = [{"text": "正在整理全球宏观资讯...", "sentiment": "NEUTRAL"}]
             
@@ -212,20 +233,18 @@ class RAGAnalyzer:
         lower_text = text.lower()
         kw_map = {
             "fed": "美联储动态", "powell": "鲍威尔讲话", "inflation": "通胀数据", 
-            "bitcoin": "比特币行情", "btc": "比特币行情", "crypto": "加密市场动态", 
-            "eth": "以太坊动态", "sec": "SEC监管动向", "etf": "ETF最新进展", 
-            "war": "局部冲突升级", "cpi": "CPI数据发布", "pce": "PCE数据发布",
-            "rate": "利率决议相关", "binance": "币安平台动态", "hack": "安全攻击警报",
-            "tesla": "特斯拉动态", "wall street": "华尔街头条", "stock": "美股盘面动态",
-            "nvidia": "英伟达行情", "growth": "增长前景分析", "dividend": "分红政策更新",
-            "earnings": "财报季数据", "bank": "银行板块动态", "china": "中国市场动态",
-            "hk": "香港市场消息", "market": "市场整体走势", "policy": "政策解读相关",
-            "bull": "牛市行情走势", "bear": "熊市风险预警", "crash": "市场崩盘预警",
-            "surging": "价格大幅飙升", "plunge": "价格大幅下挫", "adoption": "机构收养进展",
-            "approval": "监管审批传闻", "listing": "新币上架动态", "solana": "Solana生态焦点",
-            "lng": "液化天然气动态", "energy": "能源市场动态", "project": "项目进展动态",
-            "exit": "项目退出警惕", "oil": "原油市场分析", "gas": "天然气焦点",
-            "japex": "日本能源企业动态", "stake": "质押/股权变动", "venture": "合资/风投动态"
+            "bitcoin": "比特币大盘", "btc": "BTC行情", "crypto": "加密市场焦点", 
+            "eth": "以太坊动态", "sec": "SEC监管动向", "etf": "现货ETF资金动态", 
+            "war": "地缘冲突升级", "cpi": "CPI通胀率", "pce": "PCE物价指数",
+            "rate": "央行利率决议", "binance": "币安突发消息", "hack": "链上安全预警",
+            "tesla": "特斯拉持仓动态", "mstr": "微策(MSTR)持币动态", "microstrategy": "微策(MSTR)增持", 
+            "halving": "比特币减半周期", "mining": "矿工/算力动态", "hashrate": "全网算力异常",
+            "mt. gox": "门头沟抛压预警", "gox": "门头沟清算", "greed": "市场贪婪指数",
+            "fear": "市场恐慌情绪", "wall street": "华尔街机构动向", "stock": "美股风向标",
+            "nvidia": "AI板块算力(NVDA)", "growth": "宏观增长预期", "adoption": "机构采用利好",
+            "approval": "监管放行利好", "listing": "主流所上币", "solana": "SOL生态动态",
+            "bull": "牛市情绪狂热", "bear": "熊市空头施压", "crash": "市场崩盘恐慌",
+            "surging": "价格强势拉升", "plunge": "价格瀑布式暴跌"
         }
         
         for kw, cn in kw_map.items():
@@ -249,14 +268,17 @@ class RAGAnalyzer:
         last_err = None
         for attempt in range(2):
             try:
+                # Add instruction to keep thinking brief
+                sys_prompt_augmented = system_prompt + "\nIMPORTANT: Please keep your <think> process concisely under 500 tokens and then output the JSON."
+                
                 response = self.client.chat.completions.create(
                     model=self.model,
                     messages=[
-                        {"role": "system", "content": system_prompt},
+                        {"role": "system", "content": sys_prompt_augmented},
                         {"role": "user", "content": user_prompt}
                     ],
                     temperature=0.0,
-                    max_tokens=600,
+                    max_tokens=2048,
                     extra_body={"keep_alive": "15m"}
                 )
                 return response.choices[0].message.content.strip()
@@ -275,7 +297,7 @@ class RAGAnalyzer:
         try:
             full_prompt = f"{system_prompt}\n\n{user_prompt}"
             cmd = ["ollama", "run", self.model, full_prompt]
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
             if result.returncode == 0:
                 return result.stdout.strip()
             else:

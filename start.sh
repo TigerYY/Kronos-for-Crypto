@@ -2,8 +2,8 @@
 # ─────────────────────────────────────────────────────────
 #  Kronos 项目启动脚本
 #  用法：./start.sh           → 启动 FastAPI + React 全栈应用（默认）
-#        ./start.sh api       → 仅启动 FastAPI 后端（端口 8000）
-#        ./start.sh dev       → 启动 FastAPI + 前端 dev（API:8000，前端:5173）
+#        ./start.sh api       → 仅启动 FastAPI 后端（端口 8001）
+#        ./start.sh dev       → 启动 FastAPI + 前端 dev（API:8001，前端:5174）
 # ─────────────────────────────────────────────────────────
 
 set -e
@@ -27,25 +27,25 @@ MODE="${1:-prod}"
 if [ "$MODE" = "api" ]; then
     echo ""
     echo "🔌 启动 FastAPI 后端（仅 API）..."
-    echo "   访问地址：http://localhost:8000"
-    echo "   API 文档：http://localhost:8000/docs"
+    echo "   访问地址：http://localhost:8001"
+    echo "   API 文档：http://localhost:8001/docs"
     echo "   按 Ctrl+C 停止"
     echo ""
     cd "$SCRIPT_DIR"
-    exec "$VENV/python3" -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+    exec "$VENV/python3" -m uvicorn backend.main:app --host 0.0.0.0 --port 8001
 
 elif [ "$MODE" = "dev" ]; then
     echo ""
-    echo "🔌 启动 FastAPI 后端（端口 8000）..."
+    echo "🔌 启动 FastAPI 后端（端口 8001）..."
     cd "$SCRIPT_DIR"
-    "$VENV/python3" -m uvicorn backend.main:app --host 0.0.0.0 --port 8000 &
+    "$VENV/python3" -m uvicorn backend.main:app --host 0.0.0.0 --port 8001 &
     UVID_PID=$!
     sleep 2
-    echo "🌐 启动前端 dev server（端口 5173）..."
+    echo "🌐 启动前端 dev server（端口 5174）..."
     (cd "$SCRIPT_DIR/frontend" && npm run dev) &
     FEPID=$!
     echo ""
-    echo "   后端：http://localhost:8000  前端：http://localhost:5173"
+    echo "   后端：http://localhost:8001  前端：http://localhost:5174"
     echo "   按 Ctrl+C 停止"
     
     # 定义清理函数，确保杀死后台进程和它们的子进程(如 Vite)
@@ -69,9 +69,9 @@ else
     (cd "$SCRIPT_DIR/frontend" && npm run build)
     echo ""
     echo "🔌 启动 Kronos 全栈应用 (FastAPI + React)..."
-    echo "   访问地址：http://localhost:8000"
+    echo "   访问地址：http://localhost:8001"
     echo "   按 Ctrl+C 停止"
     echo ""
     cd "$SCRIPT_DIR"
-    exec "$VENV/python3" -m uvicorn backend.main:app --host 0.0.0.0 --port 8000
+    exec "$VENV/python3" -m uvicorn backend.main:app --host 0.0.0.0 --port 8001
 fi

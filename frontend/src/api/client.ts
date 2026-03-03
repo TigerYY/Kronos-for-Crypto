@@ -1,4 +1,4 @@
-const API_BASE = import.meta.env.DEV ? "http://127.0.0.1:8000" : "";
+const API_BASE = import.meta.env.DEV ? "http://127.0.0.1:8001" : "";
 const API_PREFIX = `${API_BASE}/api`;
 
 export type PortfolioState = {

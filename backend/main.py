@@ -1,6 +1,6 @@
 """
 Kronos FastAPI backend: portfolio, OHLCV data, prediction, backtest, config.
-Run from project root: uvicorn backend.main:app --reload --port 8000
+Run from project root: uvicorn backend.main:app --reload --port 8001
 """
 import os
 import sys
